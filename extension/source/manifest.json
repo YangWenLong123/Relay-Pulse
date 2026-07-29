@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Relay Pulse - AI 中转站连接测试",
+  "short_name": "Relay Pulse",
+  "version": "1.0.0",
+  "description": "管理并测试 OpenAI 兼容中转站的 URL、API Key 和模型连接。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqYLko8JKPRni2sVmX3AEINESoPMrJrsizRTGdVvh40MScoyBNlJnWSIITg8OHQIzP5Fwz5eUs48ClUVaGn7WkbSq29fVSUmpuXkNkD0OyR5KVwLbK5YYHPNW7mRzOfhEALLwdTs0HSLTCRPpaOztmY51FtXwGJfqfbW1hUJtsSlVYKWsseAPzfhoKwZpI8EMtgMBLFTXUKz/TeB9/XIWDfr3YdRCg33+UXB4FBMFdhH9D9djVtpqZRUE2sjymHSYgdWnLutPDxZypXJqQOu9nCFjjYHX4Chy18pl9cJyYvyT51nhP4WdqsWqoO1DFshMNe/3gHcrPGh5SpVh2b8lbQIDAQAB",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "打开 Relay Pulse",
+    "default_popup": "launcher.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http: https:"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "relay-pulse@local",
+      "strict_min_version": "109.0"
+    }
+  }
+}

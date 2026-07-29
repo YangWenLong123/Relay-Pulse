@@ -1,0 +1,74 @@
+[
+  {
+    "name": "2",
+    "baseUrl": "https://api.uselunora.com",
+    "apiKey": "sk-ea8b7ae6e3a20c62a243729c655aa5f7ff4c53dd3e2b32d7e8c03631f10a3e25",
+    "model": "gpt-5.5",
+    "protocol": "auto",
+    "enabled": true,
+    "timeout": 30000,
+    "remark": "",
+    "id": "6e0c51f4-10cb-4bcf-8bbc-9d8840b5f154",
+    "createdAt": "2026-07-28T09:31:57.380Z",
+    "updatedAt": "2026-07-29T03:33:09.600Z",
+    "lastTestAt": "2026-07-29T03:10:17.392Z",
+    "lastTestStatus": "failed",
+    "lastLatency": 30004,
+    "balance": {
+      "remaining": 9.974652,
+      "total": null,
+      "used": null,
+      "unit": "USD",
+      "planName": "GPT Pro 体验额度（10刀）",
+      "success": true,
+      "errorMessage": "",
+      "queriedAt": "2026-07-29T03:33:09.001Z"
+    },
+    "balanceConfig": {
+      "template": "generic",
+      "requestUrl": "https://api.uselunora.com/v1/usage",
+      "userId": "",
+      "timeout": 10000,
+      "intervalMinutes": 1,
+      "enabled": true,
+      "apiKey": "sk-ea8b7ae6e3a20c62a243729c655aa5f7ff4c53dd3e2b32d7e8c03631f10a3e25"
+    },
+    "apiKeyMasked": "sk-e************3e25"
+  },
+  {
+    "name": "1 副本 副本",
+    "baseUrl": "https://sub.vcnovb.cn",
+    "apiKey": "sk-07e4bb7889feeb4a1d41008ce2bb461daf130b10cbc885a303fec988bfeb2d72",
+    "model": "gpt-image-2",
+    "protocol": "auto",
+    "enabled": true,
+    "timeout": 120000,
+    "remark": "",
+    "id": "84bb71cc-f583-4c85-8fa6-bd5e30fccfc5",
+    "createdAt": "2026-07-29T01:41:14.150Z",
+    "updatedAt": "2026-07-29T03:33:09.510Z",
+    "lastTestAt": "2026-07-29T03:10:17.749Z",
+    "lastTestStatus": "success",
+    "lastLatency": 30361,
+    "balance": {
+      "remaining": 2.54305563,
+      "total": null,
+      "used": null,
+      "unit": "USD",
+      "planName": "钱包余额",
+      "success": true,
+      "errorMessage": "",
+      "queriedAt": "2026-07-29T03:33:09.026Z"
+    },
+    "balanceConfig": {
+      "template": "generic",
+      "requestUrl": "https://api.super-nb.me/v1/usage",
+      "apiKey": "sk-d2db241cc6ae1f99d55c91038ac42dfc9e35fa0abb210e849106f251c743237f",
+      "userId": "",
+      "timeout": 10000,
+      "intervalMinutes": 1,
+      "enabled": true
+    },
+    "apiKeyMasked": "sk-0************2d72"
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "name": "relay-pulse",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c green,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "start:extension": "npm run build -w server && npm run start -w server",
+    "build": "npm run build -w server && npm run build -w client",
+    "build:extension": "npm run build:extension -w client && node scripts/package-extension.mjs",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "lint": "npm run lint -w server && npm run lint -w client",
+    "test": "npm run test -w server && npm run test -w client"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.27.0",
+    "typescript": "5.9.3",
+    "vue-eslint-parser": "^9.4.3"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

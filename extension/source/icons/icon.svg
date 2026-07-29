@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Relay Pulse">
+  <rect width="128" height="128" rx="24" fill="#397c78" />
+  <path d="M24 92h80" fill="none" stroke="#9ed2cb" stroke-width="8" stroke-linecap="round" />
+  <path d="M28 70V36h23c16 0 24 7 24 19 0 8-4 14-12 17l15 20H62L49 74h-7v18H28V70Zm14-8h8c7 0 11-2 11-7s-4-7-11-7h-8v14Z" fill="#fff" />
+  <path d="M82 36h18c15 0 23 8 23 21 0 14-8 22-23 22h-4v13H82V36Zm14 31h3c7 0 10-3 10-10 0-6-3-9-10-9h-3v19Z" fill="#fff" />
+</svg>
