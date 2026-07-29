@@ -15,6 +15,16 @@ Relay Pulse 是一个本地运行的 AI 中转站连接测试工具。它管理 
 - 浅色、深色、跟随系统主题及响应式界面
 - JSON 串行原子写入，无数据库依赖
 
+## 界面预览
+
+### 批量测试
+
+![批量测试预览](docs/images/batch-test.png)
+
+### 单个测试
+
+![单个测试预览](docs/images/single-test.png)
+
 ## 环境要求
 
 - Node.js 18.17 或更高版本
@@ -70,6 +80,10 @@ npm run start:extension
 - `extension/packages/relay-pulse-chromium.zip`：Chrome、Edge、Brave、Opera 分发包
 - `extension/packages/relay-pulse-firefox.xpi`：Firefox 本地测试包
 
+### 下载
+
+无需本地构建时，可直接下载 Chromium 浏览器扩展安装包：[relay-pulse-chromium.zip](https://github.com/YangWenLong123/Relay-Pulse/blob/main/extension/packages/relay-pulse-chromium.zip)。下载并解压后，在 Chrome、Edge、Brave 或 Opera 的扩展管理页开启开发者模式，再选择“加载已解压的扩展程序”。
+
 Chromium 浏览器需要在扩展管理页开启开发者模式，使用“加载已解压的扩展程序”选择 `extension/dist`。Firefox 在 `about:debugging#/runtime/this-firefox` 中选择“临时载入附加组件”，再选择 XPI 或 `manifest.json`。详细步骤见 [extension/README.md](extension/README.md)。
 
 Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加载，永久安装需要提交 Mozilla AMO 签名。Safari 需要通过 Xcode 的 Web Extension Converter 转换和签名，不属于可直接拖入安装的通用产物。
@@ -121,3 +135,7 @@ DNS、TCP 与 TLS 分段耗时在 Node 原生 Fetch 中无法可靠获取，因�
 - `POST /models/discover`
 - `GET/DELETE /test-history`
 - `DELETE /test-history/:id`
+
+## 开源协议
+
+本项目采用 [MIT License](LICENSE) 开源。

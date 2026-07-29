@@ -10,19 +10,19 @@
     "remark": "",
     "id": "6e0c51f4-10cb-4bcf-8bbc-9d8840b5f154",
     "createdAt": "2026-07-28T09:31:57.380Z",
-    "updatedAt": "2026-07-29T03:33:09.600Z",
+    "updatedAt": "2026-07-29T03:46:47.880Z",
     "lastTestAt": "2026-07-29T03:10:17.392Z",
     "lastTestStatus": "failed",
     "lastLatency": 30004,
     "balance": {
-      "remaining": 9.974652,
+      "remaining": 9.9671145,
       "total": null,
       "used": null,
       "unit": "USD",
       "planName": "GPT Pro 体验额度（10刀）",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T03:33:09.001Z"
+      "queriedAt": "2026-07-29T03:46:47.262Z"
     },
     "balanceConfig": {
       "template": "generic",
@@ -46,19 +46,19 @@
     "remark": "",
     "id": "84bb71cc-f583-4c85-8fa6-bd5e30fccfc5",
     "createdAt": "2026-07-29T01:41:14.150Z",
-    "updatedAt": "2026-07-29T03:33:09.510Z",
+    "updatedAt": "2026-07-29T03:46:47.777Z",
     "lastTestAt": "2026-07-29T03:10:17.749Z",
     "lastTestStatus": "success",
     "lastLatency": 30361,
     "balance": {
-      "remaining": 2.54305563,
+      "remaining": 1.93160166,
       "total": null,
       "used": null,
       "unit": "USD",
       "planName": "钱包余额",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T03:33:09.026Z"
+      "queriedAt": "2026-07-29T03:46:47.292Z"
     },
     "balanceConfig": {
       "template": "generic",
