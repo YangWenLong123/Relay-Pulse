@@ -4,6 +4,7 @@ import type { FormInstance } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { errorMessage } from '../api/http';
+import { getRelayBalanceCredentials } from '../api/relays';
 import { useRelayStore } from '../stores/relays';
 import type { BalanceConfigFormValue, Relay } from '../types';
 
@@ -15,8 +16,11 @@ const saving = ref(false);
 const querying = ref(false);
 const apiKeyConfigured = ref(false);
 const accessTokenConfigured = ref(false);
+const credentialsLoading = ref(false);
+const credentialsLoadError = ref('');
+let credentialsController: AbortController | undefined;
 const form = reactive<BalanceConfigFormValue>({
-  template: 'generic', requestUrl: '', apiKey: '', accessToken: '', userId: '', timeout: 10000, intervalMinutes: 30, enabled: true
+  template: 'generic', requestUrl: '', apiKey: '', accessToken: '', userId: '', timeout: 10000, intervalMinutes: 1, enabled: true
 });
 
 const templateDescription = computed(() => form.template === 'generic'
@@ -38,16 +42,48 @@ function showBalanceSuccess(relay: Relay): void {
 }
 
 watch(() => props.open, (open) => {
-  if (!open || !props.relay) return;
+  if (!open || !props.relay) {
+    cancelCredentialsLoad();
+    return;
+  }
   const config = props.relay.balanceConfig;
   Object.assign(form, {
     template: config?.template ?? 'generic', requestUrl: config?.requestUrl ?? '', apiKey: '', accessToken: '',
-    userId: config?.userId ?? '', timeout: config?.timeout ?? 10000, intervalMinutes: config?.intervalMinutes ?? 30, enabled: config?.enabled ?? true
+    userId: config?.userId ?? '', timeout: config?.timeout ?? 10000, intervalMinutes: config?.intervalMinutes ?? 1, enabled: config?.enabled ?? true
   });
   apiKeyConfigured.value = config?.apiKeyConfigured ?? false;
   accessTokenConfigured.value = config?.accessTokenConfigured ?? false;
+  credentialsLoadError.value = '';
+  if (config) void loadBalanceCredentials(props.relay);
   formRef.value?.clearValidate();
 });
+
+async function loadBalanceCredentials(relay: Relay): Promise<void> {
+  cancelCredentialsLoad();
+  const currentController = new AbortController();
+  credentialsController = currentController;
+  credentialsLoading.value = true;
+  try {
+    const credentials = await getRelayBalanceCredentials(relay.id, currentController.signal);
+    if (credentialsController === currentController) {
+      form.apiKey = credentials.apiKey;
+      form.accessToken = credentials.accessToken;
+    }
+  } catch (error) {
+    if (!currentController.signal.aborted && credentialsController === currentController) credentialsLoadError.value = errorMessage(error);
+  } finally {
+    if (credentialsController === currentController) {
+      credentialsController = undefined;
+      credentialsLoading.value = false;
+    }
+  }
+}
+
+function cancelCredentialsLoad(): void {
+  credentialsController?.abort();
+  credentialsController = undefined;
+  credentialsLoading.value = false;
+}
 
 async function save(): Promise<Relay | undefined> {
   if (!props.relay) return undefined;
@@ -76,10 +112,8 @@ async function saveAndClose(): Promise<void> {
     try {
       const updated = await store.queryBalance(relay.id);
       emit('saved', updated);
-      if (updated.balance?.success) showBalanceSuccess(updated);
-      else message.warning(updated.balance?.errorMessage || '余额查询失败');
-    } catch (error) {
-      message.error(errorMessage(error));
+    } catch {
+      // The saved configuration remains valid when its initial balance query fails.
     } finally {
       querying.value = false;
     }
@@ -102,7 +136,11 @@ async function saveAndQuery(): Promise<void> {
   finally { querying.value = false; }
 }
 
-function close(): void { if (!saving.value && !querying.value) emit('close'); }
+function close(): void {
+  if (saving.value || querying.value) return;
+  cancelCredentialsLoad();
+  emit('close');
+}
 </script>
 
 <template>
@@ -118,13 +156,13 @@ function close(): void { if (!saving.value && !querying.value) emit('close'); }
           <a-input v-model:value="form.requestUrl" :maxlength="500" :placeholder="form.template === 'generic' ? '留空使用当前 Base URL' : '例如：https://api.newapi.com'" />
         </a-form-item>
         <template v-if="form.template === 'generic'">
-          <a-form-item label="余额 API Key" name="apiKey" :extra="apiKeyConfigured ? '留空将保留已保存的余额 API Key；未设置时使用当前中转站 API Key。' : '留空使用当前中转站 API Key。'">
-            <a-input-password v-model:value="form.apiKey" :maxlength="500" autocomplete="new-password" placeholder="可选：用于余额查询的独立 API Key" />
+          <a-form-item label="余额 API Key" name="apiKey" :extra="credentialsLoadError || (apiKeyConfigured ? (credentialsLoading ? '正在读取已保存的余额 API Key...' : '已回显保存的余额 API Key，可直接修改。') : '留空使用当前中转站 API Key。')">
+            <a-input v-model:value="form.apiKey" :disabled="credentialsLoading" :maxlength="500" autocomplete="off" placeholder="可选：用于余额查询的独立 API Key" />
           </a-form-item>
         </template>
         <template v-else>
-          <a-form-item label="访问令牌" name="accessToken" :rules="[{ required: !accessTokenConfigured, message: '请输入 New API 访问令牌' }]" :extra="accessTokenConfigured ? '留空将保留已保存的访问令牌。' : '在 New API 的个人安全设置中生成。'">
-            <a-input-password v-model:value="form.accessToken" :maxlength="500" autocomplete="new-password" placeholder="Bearer Token" />
+          <a-form-item label="访问令牌" name="accessToken" :rules="[{ required: !accessTokenConfigured, message: '请输入 New API 访问令牌' }]" :extra="credentialsLoadError || (accessTokenConfigured ? (credentialsLoading ? '正在读取已保存的访问令牌...' : '已回显保存的访问令牌，可直接修改。') : '在 New API 的个人安全设置中生成。')">
+            <a-input v-model:value="form.accessToken" :disabled="credentialsLoading" :maxlength="500" autocomplete="off" placeholder="Bearer Token" />
           </a-form-item>
           <a-form-item label="用户 ID" name="userId" :rules="[{ required: true, message: '请输入 New API 用户 ID' }]"><a-input v-model:value="form.userId" :maxlength="160" placeholder="例如：114514" /></a-form-item>
         </template>

@@ -66,6 +66,11 @@ export async function createApp(dependencies = {}) {
         });
         send(res, await coordinator.batchTest(input.relayIds, { message: input.message, signal: controller.signal }), '批量测试完成');
     }));
+    app.get('/api/relays/:id/api-key', asyncHandler(async (req, res) => send(res, { apiKey: (await relays.find(pathParam(req, 'id'))).apiKey })));
+    app.get('/api/relays/:id/balance-access-token', asyncHandler(async (req, res) => {
+        const balanceConfig = (await relays.find(pathParam(req, 'id'))).balanceConfig;
+        send(res, { apiKey: balanceConfig?.apiKey ?? '', accessToken: balanceConfig?.accessToken ?? '' });
+    }));
     app.get('/api/relays/:id', asyncHandler(async (req, res) => send(res, await relays.findPublic(pathParam(req, 'id')))));
     app.put('/api/relays/:id', asyncHandler(async (req, res) => {
         const relay = await relays.update(pathParam(req, 'id'), relayUpdateSchema.parse(req.body));

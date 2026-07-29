@@ -27,7 +27,9 @@ describe('BalanceService', () => {
       name: '通用线路', baseUrl: 'https://api.example.com/v1', apiKey: 'sk-secret', model: 'gpt-test', protocol: 'auto', enabled: true, timeout: 30000, remark: '',
       balanceConfig: { template: 'generic', requestUrl: '', userId: '', timeout: 10000, intervalMinutes: 30, enabled: true }
     });
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ quota: { remaining: 12.5, total: 20, used: 7.5, unit: 'USD' } }), { status: 200 }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ quota: { remaining: 12.5, total: 20, used: 7.5, unit: 'USD' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ quota: { remaining: 10, total: 20, used: 10, unit: 'USD' } }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const updated = await new BalanceService(repository).query(relay.id);
@@ -36,6 +38,9 @@ describe('BalanceService', () => {
     const listed = await repository.findPublic(relay.id);
     expect(listed.balance?.remaining).toBe(12.5);
     expect(JSON.stringify(listed)).not.toContain('sk-secret');
+
+    const updatedAgain = await new BalanceService(repository).query(relay.id);
+    expect(updatedAgain.balance).toMatchObject({ remaining: 10, dailyConsumed: 2.5 });
   });
 
   it('queries the New API template and converts quota units to USD', async () => {

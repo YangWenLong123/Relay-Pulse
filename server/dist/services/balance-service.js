@@ -1,5 +1,9 @@
 import { endpointUrl } from '../lib/relay-utils.js';
 import { HttpError } from '../lib/http-error.js';
+function dayKey(value) {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -83,7 +87,20 @@ export class BalanceService {
         if (!relay.balanceConfig?.enabled)
             throw new HttpError(409, '请先启用余额查询配置');
         const snapshot = await this.fetchBalance(relay, signal);
-        return this.relays.applyBalanceSnapshot(id, snapshot);
+        return this.relays.applyBalanceSnapshot(id, this.withDailyConsumption(relay.balance, snapshot));
+    }
+    withDailyConsumption(previous, snapshot) {
+        const usageDate = dayKey(snapshot.queriedAt);
+        const priorUsageDate = previous?.dailyUsageDate ?? (previous ? dayKey(previous.queriedAt) : '');
+        const priorConsumed = priorUsageDate === usageDate ? previous?.dailyConsumed ?? 0 : 0;
+        if (!snapshot.success || snapshot.remaining === null || !previous?.success || previous.remaining === null) {
+            return { ...snapshot, dailyUsageDate: usageDate, dailyConsumed: priorConsumed };
+        }
+        return {
+            ...snapshot,
+            dailyUsageDate: usageDate,
+            dailyConsumed: priorConsumed + Math.max(0, previous.remaining - snapshot.remaining)
+        };
     }
     async fetchBalance(relay, signal) {
         const config = relay.balanceConfig;

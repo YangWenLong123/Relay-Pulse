@@ -276,6 +276,15 @@ export class ExtensionRelayService {
     });
   }
 
+  async getRelayApiKey(relayId: string): Promise<string> {
+    return (await this.findStoredRelay(relayId)).apiKey;
+  }
+
+  async getRelayBalanceCredentials(relayId: string): Promise<{ apiKey: string; accessToken: string }> {
+    const balanceConfig = (await this.findStoredRelay(relayId)).balanceConfig;
+    return { apiKey: balanceConfig?.apiKey ?? '', accessToken: balanceConfig?.accessToken ?? '' };
+  }
+
   async batchToggleRelays(relayIds: string[], enabled: boolean): Promise<Relay[]> {
     return this.mutate((state) => {
       const idSet = new Set(relayIds);

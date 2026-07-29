@@ -8,7 +8,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import type { FormInstance } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import { ApiOutlined, SaveOutlined } from '@ant-design/icons-vue';
-import { discoverDraftModels, discoverRelayModels } from '../api/relays';
+import { discoverDraftModels, discoverRelayModels, getRelayApiKey } from '../api/relays';
 import { errorMessage } from '../api/http';
 import type { Relay, RelayFormValue } from '../types';
 import { useRelayStore } from '../stores/relays';
@@ -24,9 +24,12 @@ const standaloneExtension = isStandaloneExtensionRuntime(
 const formRef = ref<FormInstance>();
 const saving = ref(false);
 const discovering = ref(false);
+const apiKeyLoading = ref(false);
+const apiKeyLoadError = ref('');
 const modelOptions = ref<{ value: string }[]>([]);
 const modelSearch = ref('');
 let discoveryController: AbortController | undefined;
+let apiKeyController: AbortController | undefined;
 const form = reactive<RelayFormValue>({
   name: '',
   baseUrl: '',
@@ -64,6 +67,7 @@ watch(
   (open) => {
     if (!open) {
       cancelDiscovery();
+      cancelApiKeyLoad();
       return;
     }
     modelOptions.value = [];
@@ -92,9 +96,29 @@ watch(
             remark: ''
           }
     );
+    apiKeyLoadError.value = '';
+    if (props.relay) void loadApiKey(props.relay);
     formRef.value?.clearValidate();
   }
 );
+
+async function loadApiKey(relay: Relay): Promise<void> {
+  cancelApiKeyLoad();
+  const currentController = new AbortController();
+  apiKeyController = currentController;
+  apiKeyLoading.value = true;
+  try {
+    const value = await getRelayApiKey(relay.id, currentController.signal);
+    if (apiKeyController === currentController) form.apiKey = value;
+  } catch (error) {
+    if (!currentController.signal.aborted && apiKeyController === currentController) apiKeyLoadError.value = errorMessage(error);
+  } finally {
+    if (apiKeyController === currentController) {
+      apiKeyController = undefined;
+      apiKeyLoading.value = false;
+    }
+  }
+}
 
 async function discover(): Promise<void> {
   if (!form.baseUrl || (!form.apiKey && !props.relay)) {
@@ -157,13 +181,23 @@ function cancelDiscovery(): void {
   discovering.value = false;
 }
 
+function cancelApiKeyLoad(): void {
+  apiKeyController?.abort();
+  apiKeyController = undefined;
+  apiKeyLoading.value = false;
+}
+
 function close(): void {
   if (saving.value) return;
   cancelDiscovery();
+  cancelApiKeyLoad();
   emit('close');
 }
 
-onBeforeUnmount(cancelDiscovery);
+onBeforeUnmount(() => {
+  cancelDiscovery();
+  cancelApiKeyLoad();
+});
 </script>
 
 <template>
@@ -195,9 +229,9 @@ onBeforeUnmount(cancelDiscovery);
         label="API Key"
         name="apiKey"
         :rules="[{ required: !relay, message: '请输入 API Key' }]"
-        :extra="relay ? `留空表示不修改，当前：${relay.apiKeyMasked}` : standaloneExtension ? '密钥仅保存在当前浏览器扩展的本地存储中' : '密钥只会发送到本项目后端'"
+        :extra="relay ? (apiKeyLoadError || (apiKeyLoading ? '正在读取 API Key...' : '可直接修改 API Key，保存后生效。')) : standaloneExtension ? '密钥仅保存在当前浏览器扩展的本地存储中' : '密钥只会发送到本项目后端'"
       >
-        <a-input-password v-model:value="form.apiKey" :maxlength="500" autocomplete="new-password" placeholder="sk-..." />
+        <a-input v-model:value="form.apiKey" :disabled="apiKeyLoading" :maxlength="500" autocomplete="off" placeholder="sk-..." />
       </a-form-item>
       <a-form-item label="默认模型" name="model" :rules="[{ required: true, message: '请输入模型名称' }]">
         <a-space-compact block>

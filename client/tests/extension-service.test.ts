@@ -71,6 +71,7 @@ describe('ExtensionRelayService', () => {
     expect(created.baseUrl).toBe('https://api.example.com/v1');
     expect(created.apiKeyMasked).not.toContain(relayInput.apiKey!);
     expect('apiKey' in created).toBe(false);
+    await expect(service.getRelayApiKey(created.id)).resolves.toBe(relayInput.apiKey);
 
     const updated = await service.updateRelay(created.id, { name: '新名称', apiKey: '' });
     expect(updated.name).toBe('新名称');
@@ -117,13 +118,29 @@ describe('ExtensionRelayService', () => {
       ...relayInput,
       balanceConfig: { template: 'generic', requestUrl: '', apiKey: 'balance-secret', accessToken: '', userId: '', timeout: 10000, intervalMinutes: 30, enabled: true }
     });
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ balance: 8.25, unit: 'USD' }), { status: 200 }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ balance: 8.25, unit: 'USD' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ balance: 7, unit: 'USD' }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const updated = await service.queryBalance(relay.id);
     expect(updated.balance).toMatchObject({ success: true, remaining: 8.25, unit: 'USD' });
     expect(updated.balanceConfig).toMatchObject({ apiKeyConfigured: true });
+    await expect(service.getRelayBalanceCredentials(relay.id)).resolves.toEqual({ apiKey: 'balance-secret', accessToken: '' });
     expect(JSON.stringify(updated)).not.toContain('balance-secret');
     expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/v1/usage', expect.objectContaining({ headers: { Accept: 'application/json', Authorization: 'Bearer balance-secret' } }));
+
+    const updatedAgain = await service.queryBalance(relay.id);
+    expect(updatedAgain.balance).toMatchObject({ remaining: 7, dailyConsumed: 1.25 });
+  });
+
+  it('retrieves a saved New API access token without exposing it in public relay data', async () => {
+    const service = new ExtensionRelayService(new MemoryStorage(), new FakeTester());
+    const relay = await service.createRelay({
+      ...relayInput,
+      balanceConfig: { template: 'newapi', requestUrl: '', apiKey: '', accessToken: 'newapi-access-token', userId: '42', timeout: 10000, intervalMinutes: 1, enabled: true }
+    });
+    await expect(service.getRelayBalanceCredentials(relay.id)).resolves.toEqual({ apiKey: '', accessToken: 'newapi-access-token' });
+    expect(JSON.stringify(relay)).not.toContain('newapi-access-token');
   });
 });

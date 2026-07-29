@@ -81,8 +81,11 @@ describe('relay API', () => {
     expect(rejected.body.message).toBe('请求来源不被允许');
   });
 
-  it('creates, masks, edits without replacing an empty key, and deletes a relay', async () => {
-    const created = await request(app).post('/api/relays').send(input).expect(201);
+  it('creates, masks, retrieves, edits without replacing an empty key, and deletes a relay', async () => {
+    const created = await request(app).post('/api/relays').send({
+      ...input,
+      balanceConfig: { template: 'newapi', requestUrl: '', accessToken: 'newapi-access-token', userId: '42', timeout: 10000, intervalMinutes: 1, enabled: true }
+    }).expect(201);
     expect(created.body.data.apiKey).toBeUndefined();
     expect(created.body.data.apiKeyMasked).not.toContain(input.apiKey);
     const id = created.body.data.id as string;
@@ -93,12 +96,29 @@ describe('relay API', () => {
     const listed = await request(app).get('/api/relays').expect(200);
     expect(listed.body.data).toHaveLength(1);
     expect(listed.body.data[0].name).toBe('新名称');
+    const apiKey = await request(app).get(`/api/relays/${id}/api-key`).expect(200);
+    expect(apiKey.body.data).toEqual({ apiKey: input.apiKey });
+    const accessToken = await request(app).get(`/api/relays/${id}/balance-access-token`).expect(200);
+    expect(accessToken.body.data).toEqual({ apiKey: '', accessToken: 'newapi-access-token' });
+    expect(JSON.stringify(listed.body)).not.toContain(input.apiKey);
+    expect(JSON.stringify(listed.body)).not.toContain('newapi-access-token');
     const detailed = await request(app).get(`/api/relays/${id}`).expect(200);
     expect(detailed.body.data.apiKey).toBeUndefined();
     expect(JSON.stringify(detailed.body)).not.toContain(input.apiKey);
 
     await request(app).delete(`/api/relays/${id}`).expect(200);
     expect((await relays.list())).toHaveLength(0);
+  });
+
+  it('returns a saved generic balance API key without exposing it in relay lists', async () => {
+    const created = await request(app).post('/api/relays').send({
+      ...input,
+      balanceConfig: { template: 'generic', requestUrl: '', apiKey: 'balance-api-key', userId: '', timeout: 10000, intervalMinutes: 1, enabled: true }
+    }).expect(201);
+    const credentials = await request(app).get(`/api/relays/${created.body.data.id}/balance-access-token`).expect(200);
+    expect(credentials.body.data).toEqual({ apiKey: 'balance-api-key', accessToken: '' });
+    const listed = await request(app).get('/api/relays').expect(200);
+    expect(JSON.stringify(listed.body)).not.toContain('balance-api-key');
   });
 
   it('tests a relay and stores history', async () => {

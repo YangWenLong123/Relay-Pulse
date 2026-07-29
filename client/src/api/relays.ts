@@ -38,6 +38,21 @@ export async function duplicateRelay(id: string): Promise<Relay> {
   return (await http.post<ApiEnvelope<Relay>>(`/relays/${id}/duplicate`)).data.data;
 }
 
+export async function getRelayApiKey(id: string, signal?: AbortSignal): Promise<string> {
+  if (standaloneExtension) return localService().getRelayApiKey(id);
+  return (await http.get<ApiEnvelope<{ apiKey: string }>>(`/relays/${id}/api-key`, { signal })).data.data.apiKey;
+}
+
+export interface RelayBalanceCredentials {
+  apiKey: string;
+  accessToken: string;
+}
+
+export async function getRelayBalanceCredentials(id: string, signal?: AbortSignal): Promise<RelayBalanceCredentials> {
+  if (standaloneExtension) return localService().getRelayBalanceCredentials(id);
+  return (await http.get<ApiEnvelope<RelayBalanceCredentials>>(`/relays/${id}/balance-access-token`, { signal })).data.data;
+}
+
 export async function batchToggleRelays(relayIds: string[], enabled: boolean): Promise<Relay[]> {
   if (standaloneExtension) return localService().batchToggleRelays(relayIds, enabled);
   return (await http.patch<ApiEnvelope<Relay[]>>('/relays/batch', { relayIds, enabled })).data.data;

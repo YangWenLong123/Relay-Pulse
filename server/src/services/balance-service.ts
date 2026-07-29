@@ -5,6 +5,11 @@ import type { BalanceSnapshot, Relay } from '../types.js';
 
 type JsonRecord = Record<string, unknown>;
 
+function dayKey(value: string): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -85,7 +90,21 @@ export class BalanceService {
     const relay = await this.relays.find(id);
     if (!relay.balanceConfig?.enabled) throw new HttpError(409, '请先启用余额查询配置');
     const snapshot = await this.fetchBalance(relay, signal);
-    return this.relays.applyBalanceSnapshot(id, snapshot);
+    return this.relays.applyBalanceSnapshot(id, this.withDailyConsumption(relay.balance, snapshot));
+  }
+
+  private withDailyConsumption(previous: BalanceSnapshot | undefined, snapshot: BalanceSnapshot): BalanceSnapshot {
+    const usageDate = dayKey(snapshot.queriedAt);
+    const priorUsageDate = previous?.dailyUsageDate ?? (previous ? dayKey(previous.queriedAt) : '');
+    const priorConsumed = priorUsageDate === usageDate ? previous?.dailyConsumed ?? 0 : 0;
+    if (!snapshot.success || snapshot.remaining === null || !previous?.success || previous.remaining === null) {
+      return { ...snapshot, dailyUsageDate: usageDate, dailyConsumed: priorConsumed };
+    }
+    return {
+      ...snapshot,
+      dailyUsageDate: usageDate,
+      dailyConsumed: priorConsumed + Math.max(0, previous.remaining - snapshot.remaining)
+    };
   }
 
   private async fetchBalance(relay: Relay, signal?: AbortSignal): Promise<BalanceSnapshot> {

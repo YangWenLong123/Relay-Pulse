@@ -110,6 +110,19 @@ export async function createApp(dependencies: AppDependencies = {}): Promise<exp
   );
 
   app.get(
+    '/api/relays/:id/api-key',
+    asyncHandler(async (req, res) => send(res, { apiKey: (await relays.find(pathParam(req, 'id'))).apiKey }))
+  );
+
+  app.get(
+    '/api/relays/:id/balance-access-token',
+    asyncHandler(async (req, res) => {
+      const balanceConfig = (await relays.find(pathParam(req, 'id'))).balanceConfig;
+      send(res, { apiKey: balanceConfig?.apiKey ?? '', accessToken: balanceConfig?.accessToken ?? '' });
+    })
+  );
+
+  app.get(
     '/api/relays/:id',
     asyncHandler(async (req, res) => send(res, await relays.findPublic(pathParam(req, 'id'))))
   );

@@ -81,6 +81,32 @@ const filteredRelays = computed(() => {
 });
 const selectedRelays = computed(() => store.relays.filter((relay) => selectedRowKeys.value.includes(relay.id)));
 const failedRelays = computed(() => store.relays.filter((relay) => relay.lastTestStatus === 'failed'));
+const balanceSummary = computed(() => {
+  const totals = new Map<string, number>();
+  for (const relay of store.relays) {
+    const balance = relay.balance;
+    if (!balance?.success || balance.remaining === null || !Number.isFinite(balance.remaining)) continue;
+    const unit = balance.unit.trim();
+    totals.set(unit, (totals.get(unit) ?? 0) + balance.remaining);
+  }
+  return [...totals.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([unit, total]) => formatBalance(total, unit));
+});
+const todayConsumptionSummary = computed(() => {
+  const today = new Date();
+  const usageDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const totals = new Map<string, number>();
+  for (const relay of store.relays) {
+    const balance = relay.balance;
+    if (!balance?.success || balance.dailyUsageDate !== usageDate || !Number.isFinite(balance.dailyConsumed)) continue;
+    const unit = balance.unit.trim();
+    totals.set(unit, (totals.get(unit) ?? 0) + (balance.dailyConsumed ?? 0));
+  }
+  return [...totals.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([unit, total]) => formatBalance(total, unit));
+});
 const tablePagination = computed<TablePaginationConfig>(() => ({
   current: currentPage.value,
   pageSize: pageSize.value,
@@ -115,7 +141,6 @@ const columns: TableColumnsType<Relay> = [
   { title: 'Base URL', dataIndex: 'baseUrl', key: 'baseUrl', width: 230 },
   { title: '模型', dataIndex: 'model', key: 'model', width: 150 },
   { title: '余额', dataIndex: 'balance', key: 'balance', width: 145 },
-  { title: '协议', dataIndex: 'protocol', key: 'protocol', width: 105 },
   { title: '启用', dataIndex: 'enabled', key: 'enabled', width: 76, align: 'center' },
   {
     title: '最近状态',
@@ -138,7 +163,7 @@ const columns: TableColumnsType<Relay> = [
     width: 165,
     sorter: (a, b) => (a.lastTestAt ?? '').localeCompare(b.lastTestAt ?? '')
   },
-  { title: '操作', key: 'actions', width: 214, fixed: 'right' }
+  { title: '操作', key: 'actions', width: 190, fixed: 'right' }
 ];
 
 onMounted(() => {
@@ -362,9 +387,6 @@ function statusLabel(status: TestStatus): string {
 function statusColor(status: TestStatus): string {
   return { success: 'success', failed: 'error', untested: 'default' }[status];
 }
-function protocolLabel(protocol: Relay['protocol']): string {
-  return { auto: '自动', responses: 'Responses', chat: 'Chat' }[protocol];
-}
 function dateTime(value: string | null): string {
   return value ? new Date(value).toLocaleString() : '-';
 }
@@ -412,6 +434,8 @@ function dateTime(value: string | null): string {
         <div class="metric"><span class="metric-label">已启用</span><strong class="metric-value">{{ store.stats.enabled }}</strong></div>
         <div class="metric"><span class="metric-label">连接正常</span><strong class="metric-value">{{ store.stats.success }}</strong></div>
         <div class="metric"><span class="metric-label">连接异常</span><strong class="metric-value">{{ store.stats.failed }}</strong></div>
+        <div class="metric metric-balance"><span class="metric-label">全部余额汇总</span><strong class="metric-value metric-balance-value">{{ balanceSummary.length ? balanceSummary.join(' · ') : '-' }}</strong></div>
+        <div class="metric metric-balance"><span class="metric-label">今日消耗</span><strong class="metric-value metric-balance-value">{{ todayConsumptionSummary.length ? todayConsumptionSummary.join(' · ') : '-' }}</strong></div>
       </section>
 
       <section class="workspace-panel">
@@ -494,7 +518,6 @@ function dateTime(value: string | null): string {
                 </a-tooltip>
               </template>
               <template v-else-if="column.key === 'model'"><a-tooltip :title="record.model"><span class="truncate" style="display: block">{{ record.model }}</span></a-tooltip></template>
-              <template v-else-if="column.key === 'protocol'"><a-tag :bordered="false">{{ protocolLabel(record.protocol) }}</a-tag></template>
               <template v-else-if="column.key === 'enabled'"><a-switch :checked="record.enabled" :loading="pendingIds.has(record.id)" size="small" @change="onRelayToggle(record, $event)" /></template>
               <template v-else-if="column.key === 'lastTestStatus'"><a-tag :color="statusColor(record.lastTestStatus)">{{ statusLabel(record.lastTestStatus) }}</a-tag></template>
               <template v-else-if="column.key === 'lastLatency'"><span class="latency-value">{{ record.lastLatency === null ? '-' : `${record.lastLatency}ms` }}</span></template>
@@ -568,7 +591,7 @@ function dateTime(value: string | null): string {
     </main>
 
     <RelayFormDrawer :open="formOpen" :relay="editingRelay" @close="formOpen = false" />
-    <BalanceConfigDrawer :open="balanceConfigOpen" :relay="balanceRelay" @close="balanceConfigOpen = false" />
+    <BalanceConfigDrawer :open="balanceConfigOpen" :relay="balanceRelay" @close="balanceConfigOpen = false" @saved="balanceRelay = $event" />
     <TestModal :open="testOpen" :relay="testingRelay" @close="testOpen = false" />
     <BatchTestModal :open="batchOpen" :relays="selectedRelays" @close="batchOpen = false" />
     <HistoryDrawer :open="historyOpen" :initial-relay-id="historyRelayId" @close="historyOpen = false" />

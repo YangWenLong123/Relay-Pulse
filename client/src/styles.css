@@ -103,7 +103,7 @@ button, input, textarea { letter-spacing: 0; }
 .page-heading p { margin: 0; color: var(--muted); }
 .metric-band {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 8px;
@@ -114,6 +114,7 @@ button, input, textarea { letter-spacing: 0; }
 .metric:last-child { border-right: 0; }
 .metric-label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
 .metric-value { font-size: 23px; line-height: 28px; font-weight: 650; }
+.metric-balance-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; line-height: 28px; font-variant-numeric: tabular-nums; }
 .workspace-panel { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; overflow: hidden; }
 .error-banner {
   display: flex;
@@ -178,12 +179,15 @@ button, input, textarea { letter-spacing: 0; }
   overflow-wrap: anywhere;
   font: 12px/1.7 'SFMono-Regular', Consolas, monospace;
 }
+.result-log-line { overflow-wrap: anywhere; }
+.result-log-line + .result-log-line { margin-top: 4px; }
 .result-console .success { color: #69d29f; }
 .result-console .failure { color: #f08b8b; }
 .test-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .test-meta-item { padding: 12px; background: var(--surface-subtle); min-width: 0; }
 .test-meta-item span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
 .test-meta-item strong { font-size: 13px; }
+.test-api-key { overflow-wrap: anywhere; }
 .batch-grid { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
 .batch-stat { padding: 12px; text-align: center; border-right: 1px solid var(--border); }
 .batch-stat:last-child { border-right: 0; }
@@ -207,8 +211,8 @@ button, input, textarea { letter-spacing: 0; }
   .topbar-inner, .page-content { width: min(100% - 28px, 1440px); }
   .page-content { padding-top: 20px; }
   .metric-band { grid-template-columns: repeat(2, 1fr); }
-  .metric:nth-child(2) { border-right: 0; }
-  .metric:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .metric:nth-child(even) { border-right: 0; }
+  .metric:not(:last-child) { border-bottom: 1px solid var(--border); }
   .desktop-table { display: none; }
   .mobile-relays { display: block; }
   .toolbar { align-items: flex-start; flex-direction: column; }
@@ -223,6 +227,7 @@ button, input, textarea { letter-spacing: 0; }
   .page-heading h1 { font-size: 21px; line-height: 28px; }
   .metric { padding: 12px 14px; }
   .metric-value { font-size: 20px; }
+  .metric-balance-value { font-size: 16px; }
   .toolbar-group .ant-select { flex: 1; min-width: 0 !important; }
   .test-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .batch-grid { grid-template-columns: repeat(3, 1fr); }

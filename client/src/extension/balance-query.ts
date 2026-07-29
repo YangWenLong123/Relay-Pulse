@@ -5,9 +5,15 @@ interface BalanceRelay {
   baseUrl: string;
   apiKey: string;
   balanceConfig?: BalanceConfigFormValue;
+  balance?: BalanceSnapshot;
 }
 
 type JsonRecord = Record<string, unknown>;
+
+function dayKey(value: string): string {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -58,6 +64,20 @@ function url(relay: BalanceRelay, config: BalanceConfigFormValue): string {
   return endpointUrl(base, endpoint);
 }
 
+function withDailyConsumption(previous: BalanceSnapshot | undefined, snapshot: BalanceSnapshot): BalanceSnapshot {
+  const usageDate = dayKey(snapshot.queriedAt);
+  const priorUsageDate = previous?.dailyUsageDate ?? (previous ? dayKey(previous.queriedAt) : '');
+  const priorConsumed = priorUsageDate === usageDate ? previous?.dailyConsumed ?? 0 : 0;
+  if (!snapshot.success || snapshot.remaining === null || !previous?.success || previous.remaining === null) {
+    return { ...snapshot, dailyUsageDate: usageDate, dailyConsumed: priorConsumed };
+  }
+  return {
+    ...snapshot,
+    dailyUsageDate: usageDate,
+    dailyConsumed: priorConsumed + Math.max(0, previous.remaining - snapshot.remaining)
+  };
+}
+
 export async function queryBalance(relay: BalanceRelay, signal?: AbortSignal): Promise<BalanceSnapshot> {
   const config = relay.balanceConfig;
   if (!config?.enabled) throw new Error('请先启用余额查询配置');
@@ -81,9 +101,9 @@ export async function queryBalance(relay: BalanceRelay, signal?: AbortSignal): P
     if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? '凭证无效或没有查询权限' : `查询请求失败（HTTP ${response.status}）`);
     const payload: unknown = JSON.parse(raw);
     const result = config.template === 'newapi' ? newApi(payload) : generic(payload);
-    return { ...result, success: true, errorMessage: '', queriedAt };
+    return withDailyConsumption(relay.balance, { ...result, success: true, errorMessage: '', queriedAt });
   } catch (error) {
-    return {
+    return withDailyConsumption(relay.balance, {
       success: false,
       remaining: null,
       total: null,
@@ -92,7 +112,7 @@ export async function queryBalance(relay: BalanceRelay, signal?: AbortSignal): P
       planName: '',
       errorMessage: controller.signal.aborted ? '余额查询超时或已取消' : (error as Error).message || '余额查询失败',
       queriedAt
-    };
+    });
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abort);

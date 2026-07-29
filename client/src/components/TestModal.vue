@@ -43,6 +43,10 @@ watch(
   }
 );
 
+function abbreviatedApiKey(maskedKey: string): string {
+  return maskedKey.replace(/\*+/, '...');
+}
+
 const stateLabel = computed(() => ({
   idle: '等待测试',
   running: '测试中',
@@ -143,7 +147,7 @@ onBeforeUnmount(cleanupRequests);
     <template v-if="relay">
       <div class="test-meta" style="margin-bottom: 18px">
         <div class="test-meta-item"><span>中转站</span><strong class="truncate">{{ relay.name }}</strong></div>
-        <div class="test-meta-item"><span>API Key</span><strong class="mono">{{ relay.apiKeyMasked }}</strong></div>
+        <div class="test-meta-item"><span>API Key</span><strong class="mono test-api-key">{{ abbreviatedApiKey(relay.apiKeyMasked) }}</strong></div>
         <div class="test-meta-item"><span>状态</span><a-tag :color="relay.enabled ? 'success' : 'default'">{{ relay.enabled ? '已启用' : '已停用' }}</a-tag></div>
         <div class="test-meta-item"><span>超时</span><strong>{{ relay.timeout / 1000 }}s</strong></div>
       </div>
@@ -178,18 +182,19 @@ onBeforeUnmount(cleanupRequests);
       </div>
       <div class="result-console">
         <template v-if="state === 'idle'">准备就绪。将向模型发送 “{{ prompt }}”。</template>
-        <template v-else-if="state === 'running'">正在连接 {{ relay.baseUrl }}
-请求模型：{{ model }}
-等待模型回复...</template>
+        <template v-else-if="state === 'running'">
+          <div class="result-log-line">正在连接 {{ relay.baseUrl }}</div>
+          <div class="result-log-line">请求模型：{{ model }} 等待模型回复...</div>
+        </template>
         <template v-else-if="state === 'cancelled'">测试请求已取消。</template>
-        <template v-else-if="result"><span :class="result.success ? 'success' : 'failure'">{{ result.success ? '✓ 连接测试成功' : '× 连接测试失败' }}</span>
-HTTP 状态：{{ result.statusCode ?? '-' }}
-使用协议：{{ result.protocol }}
-首字节：{{ result.firstByteDuration === null ? '-' : `${result.firstByteDuration}ms` }}
-总耗时：{{ result.totalDuration }}ms
-模型回复：{{ result.responseText || '-' }}
-<template v-if="result.errorType">错误类型：{{ result.errorType }}
-</template><template v-if="result.errorMessage">错误信息：{{ result.errorMessage }}</template></template>
+        <template v-else-if="result">
+          <div class="result-log-line">正在连接 {{ relay.baseUrl }}</div>
+          <div class="result-log-line">请求模型：{{ result.model }} 等待模型回复...</div>
+          <div class="result-log-line"><span :class="result.success ? 'success' : 'failure'">{{ result.success ? '✓ 连接测试成功' : '× 连接测试失败' }}</span> HTTP 状态：{{ result.statusCode ?? '-' }} 使用协议：{{ result.protocol }} 首字节：{{ result.firstByteDuration === null ? '-' : `${result.firstByteDuration}ms` }} 总耗时：{{ result.totalDuration }}ms</div>
+          <div class="result-log-line">模型回复：{{ result.responseText || '-' }}</div>
+          <div v-if="result.errorType" class="result-log-line">错误类型：{{ result.errorType }}</div>
+          <div v-if="result.errorMessage" class="result-log-line">错误信息：{{ result.errorMessage }}</div>
+        </template>
         <template v-else>请求失败，未获得测试结果。</template>
       </div>
     </template>

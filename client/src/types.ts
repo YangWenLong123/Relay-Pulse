@@ -34,6 +34,8 @@ export interface BalanceSnapshot {
   planName: string;
   errorMessage: string;
   queriedAt: string;
+  dailyUsageDate?: string;
+  dailyConsumed?: number;
 }
 
 export interface Relay {

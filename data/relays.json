@@ -10,28 +10,30 @@
     "remark": "",
     "id": "6e0c51f4-10cb-4bcf-8bbc-9d8840b5f154",
     "createdAt": "2026-07-28T09:31:57.380Z",
-    "updatedAt": "2026-07-29T03:46:47.880Z",
-    "lastTestAt": "2026-07-29T03:10:17.392Z",
-    "lastTestStatus": "failed",
-    "lastLatency": 30004,
+    "updatedAt": "2026-07-29T05:46:45.568Z",
+    "lastTestAt": "2026-07-29T05:15:11.312Z",
+    "lastTestStatus": "success",
+    "lastLatency": 5121,
     "balance": {
-      "remaining": 9.9671145,
+      "remaining": 9.944232,
       "total": null,
       "used": null,
       "unit": "USD",
       "planName": "GPT Pro 体验额度（10刀）",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T03:46:47.262Z"
+      "queriedAt": "2026-07-29T05:46:44.969Z",
+      "dailyUsageDate": "2026-07-29",
+      "dailyConsumed": 0
     },
     "balanceConfig": {
       "template": "generic",
-      "requestUrl": "https://api.uselunora.com/v1/usage",
+      "requestUrl": "https://api.uselunora.com",
+      "apiKey": "sk-ea8b7ae6e3a20c62a243729c655aa5f7ff4c53dd3e2b32d7e8c03631f10a3e25",
       "userId": "",
       "timeout": 10000,
       "intervalMinutes": 1,
-      "enabled": true,
-      "apiKey": "sk-ea8b7ae6e3a20c62a243729c655aa5f7ff4c53dd3e2b32d7e8c03631f10a3e25"
+      "enabled": true
     },
     "apiKeyMasked": "sk-e************3e25"
   },
@@ -39,26 +41,28 @@
     "name": "1 副本 副本",
     "baseUrl": "https://sub.vcnovb.cn",
     "apiKey": "sk-07e4bb7889feeb4a1d41008ce2bb461daf130b10cbc885a303fec988bfeb2d72",
-    "model": "gpt-image-2",
+    "model": "gpt-5.5",
     "protocol": "auto",
     "enabled": true,
     "timeout": 120000,
     "remark": "",
     "id": "84bb71cc-f583-4c85-8fa6-bd5e30fccfc5",
     "createdAt": "2026-07-29T01:41:14.150Z",
-    "updatedAt": "2026-07-29T03:46:47.777Z",
-    "lastTestAt": "2026-07-29T03:10:17.749Z",
+    "updatedAt": "2026-07-29T05:46:45.429Z",
+    "lastTestAt": "2026-07-29T05:21:56.734Z",
     "lastTestStatus": "success",
-    "lastLatency": 30361,
+    "lastLatency": 18894,
     "balance": {
-      "remaining": 1.93160166,
+      "remaining": 0.60464695,
       "total": null,
       "used": null,
       "unit": "USD",
       "planName": "钱包余额",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T03:46:47.292Z"
+      "queriedAt": "2026-07-29T05:46:44.971Z",
+      "dailyUsageDate": "2026-07-29",
+      "dailyConsumed": 0.31427773000000003
     },
     "balanceConfig": {
       "template": "generic",
@@ -70,5 +74,43 @@
       "enabled": true
     },
     "apiKeyMasked": "sk-0************2d72"
+  },
+  {
+    "name": "3",
+    "baseUrl": "https://ooioo.work/v1",
+    "apiKey": "sk-TKtYZAT198onQBygPouMcylEzw2gw4Lm8x29Z1qhxVa8Tcxg",
+    "model": "gpt-5.5",
+    "protocol": "auto",
+    "enabled": true,
+    "timeout": 30000,
+    "remark": "",
+    "id": "cd67113e-dffb-4268-bbca-c69cd1b55657",
+    "createdAt": "2026-07-29T05:24:09.779Z",
+    "updatedAt": "2026-07-29T05:46:48.064Z",
+    "lastTestAt": "2026-07-29T05:24:18.860Z",
+    "lastTestStatus": "success",
+    "lastLatency": 3367,
+    "balance": {
+      "remaining": 29.98181,
+      "total": 30,
+      "used": 0.01819,
+      "unit": "USD",
+      "planName": "default",
+      "success": true,
+      "errorMessage": "",
+      "queriedAt": "2026-07-29T05:46:44.972Z",
+      "dailyUsageDate": "2026-07-29",
+      "dailyConsumed": 0
+    },
+    "balanceConfig": {
+      "template": "newapi",
+      "requestUrl": "https://ooioo.work",
+      "accessToken": "wbEEfRWK3y/Ff2l9O9K7ECsFdx0e0Q==",
+      "userId": "4301",
+      "timeout": 10000,
+      "intervalMinutes": 1,
+      "enabled": true
+    },
+    "apiKeyMasked": "sk-T************Tcxg"
   }
 ]

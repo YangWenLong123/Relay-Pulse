@@ -6,10 +6,20 @@ const httpUrl = z
   .trim()
   .url('请输入有效 URL')
   .max(500)
-  .refine((value) => ['http:', 'https:'].includes(new URL(value).protocol), 'URL 仅支持 http 或 https 协议')
   .refine((value) => {
-    const url = new URL(value);
-    return !url.username && !url.password;
+    try {
+      return ['http:', 'https:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, 'URL 仅支持 http 或 https 协议')
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return !url.username && !url.password;
+    } catch {
+      return false;
+    }
   }, 'URL 不能包含用户名或密码');
 
 const createApiKey = z
@@ -33,7 +43,7 @@ const balanceConfigSchema = z.object({
   accessToken: updateApiKey,
   userId: z.string().trim().max(160).default(''),
   timeout: z.number().int().min(1000).max(120000).default(10000),
-  intervalMinutes: z.number().int().min(0).max(1440).default(30),
+  intervalMinutes: z.number().int().min(0).max(1440).default(1),
   enabled: z.boolean().default(true)
 });
 
