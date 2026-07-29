@@ -31,6 +31,19 @@ import { router } from './router';
 import 'ant-design-vue/dist/reset.css';
 import './styles.css';
 
+window.addEventListener(
+  'error',
+  (event: ErrorEvent) => {
+    if (
+      event.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+      event.message === 'ResizeObserver loop limit exceeded'
+    ) {
+      event.preventDefault();
+    }
+  },
+  true
+);
+
 const app = createApp(App).use(createPinia()).use(router);
 [
   AutoComplete,
