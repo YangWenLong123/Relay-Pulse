@@ -8,6 +8,7 @@ const relay: StoredRelay = {
   baseUrl: 'https://api.example.com/v1',
   apiKey: 'sk-secret-value',
   model: 'gpt-test',
+  platform: 'openai',
   protocol: 'auto',
   enabled: true,
   timeout: 1000,
@@ -106,5 +107,23 @@ describe('ExtensionRelayTester', () => {
     const pending = tester.test(relay, { signal: controller.signal });
     controller.abort();
     expect((await pending).errorType).toBe('cancelled');
+  });
+
+  it('uses Anthropic Messages requests and fallback model options', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ content: [{ type: 'text', text: 'Claude response' }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }));
+    const tester = new ExtensionRelayTester(fetcher);
+    const anthropicRelay = { ...relay, platform: 'anthropic' as const };
+
+    const result = await tester.test(anthropicRelay);
+    await expect(tester.discoverModels(anthropicRelay)).resolves.toContain('claude-sonnet-4-20250514');
+
+    expect(result.protocol).toBe('anthropic');
+    expect(fetcher).toHaveBeenCalledWith(
+      'https://api.example.com/v1/messages',
+      expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': relay.apiKey }) })
+    );
   });
 });

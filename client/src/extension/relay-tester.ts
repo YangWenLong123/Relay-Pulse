@@ -1,4 +1,4 @@
-import type { RelayProtocol, TestErrorType, TestResult } from '../types';
+import type { RelayPlatform, RelayProtocol, TestErrorType, TestProtocol, TestResult } from '../types';
 import { endpointUrl, type StoredRelay } from './relay-utils';
 
 interface AttemptFailure extends Error {
@@ -13,6 +13,14 @@ interface AttemptResult {
 }
 
 type JsonRecord = Record<string, unknown>;
+
+const anthropicModelFallbacks = [
+  'claude-opus-4-1-20250805',
+  'claude-opus-4-20250514',
+  'claude-sonnet-4-20250514',
+  'claude-3-7-sonnet-20250219',
+  'claude-3-5-haiku-20241022'
+];
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -147,7 +155,7 @@ export interface RelayTestClient {
     relay: StoredRelay,
     options?: { model?: string; message?: string; protocol?: RelayProtocol; signal?: AbortSignal }
   ): Promise<TestResult>;
-  discoverModels(relay: Pick<StoredRelay, 'baseUrl' | 'apiKey' | 'timeout'>, signal?: AbortSignal): Promise<string[]>;
+  discoverModels(relay: Pick<StoredRelay, 'baseUrl' | 'apiKey' | 'platform' | 'timeout'>, signal?: AbortSignal): Promise<string[]>;
 }
 
 export class ExtensionRelayTester implements RelayTestClient {
@@ -162,10 +170,13 @@ export class ExtensionRelayTester implements RelayTestClient {
     const message = options.message?.trim() || 'hi';
     const requestedProtocol = options.protocol ?? relay.protocol;
     const startedAt = performance.now();
-    let usedProtocol: Exclude<RelayProtocol, 'auto'> = requestedProtocol === 'chat' ? 'chat' : 'responses';
+    let usedProtocol: TestProtocol = requestedProtocol === 'chat' ? 'chat' : 'responses';
     try {
       let attempt: AttemptResult;
-      if (requestedProtocol === 'auto') {
+      if (relay.platform === 'anthropic') {
+        usedProtocol = 'anthropic';
+        attempt = await this.attemptAnthropic(relay, model, message, options.signal);
+      } else if (requestedProtocol === 'auto') {
         try {
           attempt = await this.attempt(relay, model, message, 'responses', options.signal);
         } catch (error) {
@@ -199,22 +210,35 @@ export class ExtensionRelayTester implements RelayTestClient {
   }
 
   async discoverModels(
-    relay: Pick<StoredRelay, 'baseUrl' | 'apiKey' | 'timeout'>,
+    relay: Pick<StoredRelay, 'baseUrl' | 'apiKey' | 'platform' | 'timeout'>,
     signal?: AbortSignal
   ): Promise<string[]> {
-    return this.withTimeout(relay.timeout, signal, '模型探测', async (requestSignal) => {
-      const response = await this.fetcher(endpointUrl(relay.baseUrl, '/v1/models'), {
-        headers: { Authorization: `Bearer ${relay.apiKey}`, Accept: 'application/json' },
-        signal: requestSignal
-      });
-      const body = await response.text();
-      if (!response.ok) throw statusError(response.status, body, relay.apiKey);
-      try {
-        return extractModelIds(JSON.parse(body));
-      } catch {
-        throw makeFailure('模型列表返回了无法解析的内容', 'invalid_response', response.status);
+    const platform: RelayPlatform = relay.platform ?? 'openai';
+    try {
+      return await this.withTimeout(relay.timeout, signal, '模型探测', async (requestSignal) => {
+        const response = await this.fetcher(endpointUrl(relay.baseUrl, '/v1/models'), {
+          headers:
+            platform === 'anthropic'
+              ? { 'x-api-key': relay.apiKey, 'anthropic-version': '2023-06-01', Accept: 'application/json' }
+              : { Authorization: `Bearer ${relay.apiKey}`, Accept: 'application/json' },
+          signal: requestSignal
+        });
+        const body = await response.text();
+        if (!response.ok) throw statusError(response.status, body, relay.apiKey);
+        try {
+          const models = extractModelIds(JSON.parse(body));
+          return platform === 'anthropic' && !models.length ? anthropicModelFallbacks : models;
+        } catch {
+          throw makeFailure('模型列表返回了无法解析的内容', 'invalid_response', response.status);
+        }
+      }, relay.apiKey);
+    } catch (error) {
+      const failure = error as Partial<AttemptFailure>;
+      if (platform === 'anthropic' && ['not_found', 'http_error', 'invalid_response'].includes(failure.errorType ?? '')) {
+        return anthropicModelFallbacks;
       }
-    }, relay.apiKey);
+      throw error;
+    }
   }
 
   private async attempt(
@@ -242,6 +266,40 @@ export class ExtensionRelayTester implements RelayTestClient {
           signal: requestSignal
         }
       );
+      const firstByteDuration = Math.round(performance.now() - startedAt);
+      const raw = await response.text();
+      if (!response.ok) throw statusError(response.status, raw, relay.apiKey);
+      let payload: unknown;
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        throw makeFailure('接口返回了非 JSON 内容', 'invalid_response', response.status);
+      }
+      const responseText = extractResponseText(payload);
+      if (!responseText) throw makeFailure('接口返回成功，但模型回复为空', 'invalid_response', response.status);
+      return { responseText, statusCode: response.status, firstByteDuration };
+    }, relay.apiKey);
+  }
+
+  private async attemptAnthropic(
+    relay: StoredRelay,
+    model: string,
+    message: string,
+    signal?: AbortSignal
+  ): Promise<AttemptResult> {
+    const startedAt = performance.now();
+    return this.withTimeout(relay.timeout, signal, '连接测试', async (requestSignal) => {
+      const response = await this.fetcher(endpointUrl(relay.baseUrl, '/v1/messages'), {
+        method: 'POST',
+        headers: {
+          'x-api-key': relay.apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ model, max_tokens: 64, messages: [{ role: 'user', content: message }], stream: false }),
+        signal: requestSignal
+      });
       const firstByteDuration = Math.round(performance.now() - startedAt);
       const raw = await response.text();
       if (!response.ok) throw statusError(response.status, raw, relay.apiKey);
@@ -290,7 +348,7 @@ export class ExtensionRelayTester implements RelayTestClient {
   private result(
     relay: StoredRelay,
     model: string,
-    protocol: Exclude<RelayProtocol, 'auto'>,
+    protocol: TestProtocol,
     startedAt: number,
     result: Pick<TestResult, 'success' | 'statusCode' | 'responseText' | 'firstByteDuration' | 'errorType' | 'errorMessage'>
   ): TestResult {

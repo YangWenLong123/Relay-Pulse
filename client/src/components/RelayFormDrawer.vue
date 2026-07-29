@@ -10,7 +10,7 @@ import { message } from 'ant-design-vue';
 import { ApiOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { discoverDraftModels, discoverRelayModels, getRelayApiKey } from '../api/relays';
 import { errorMessage } from '../api/http';
-import type { Relay, RelayFormValue } from '../types';
+import type { Relay, RelayFormValue, RelayPlatform } from '../types';
 import { useRelayStore } from '../stores/relays';
 import { isStandaloneExtensionRuntime } from '../utils/runtime';
 
@@ -35,17 +35,28 @@ const form = reactive<RelayFormValue>({
   baseUrl: '',
   apiKey: '',
   model: '',
+  platform: 'openai',
   protocol: 'auto',
   enabled: true,
   timeout: 30000,
   remark: ''
 });
 
+const anthropicModels = [
+  'claude-opus-4-1-20250805',
+  'claude-opus-4-20250514',
+  'claude-sonnet-4-20250514',
+  'claude-3-7-sonnet-20250219',
+  'claude-3-5-haiku-20241022'
+];
+const isAnthropic = computed(() => form.platform === 'anthropic');
+
 const filteredModelOptions = computed(() => {
   const query = modelSearch.value.trim();
   const normalizedQuery = query.toLowerCase();
-  const matches = modelOptions.value.filter(({ value }) => value.toLowerCase().includes(normalizedQuery));
-  const hasExactMatch = modelOptions.value.some(({ value }) => value.toLowerCase() === normalizedQuery);
+  const options = isAnthropic.value && !modelOptions.value.length ? anthropicModels.map((value) => ({ value })) : modelOptions.value;
+  const matches = options.filter(({ value }) => value.toLowerCase().includes(normalizedQuery));
+  const hasExactMatch = options.some(({ value }) => value.toLowerCase() === normalizedQuery);
 
   return query && !hasExactMatch ? [{ value: query }, ...matches] : matches;
 });
@@ -80,6 +91,7 @@ watch(
             baseUrl: props.relay.baseUrl,
             apiKey: '',
             model: props.relay.model,
+            platform: props.relay.platform,
             protocol: props.relay.protocol,
             enabled: props.relay.enabled,
             timeout: props.relay.timeout,
@@ -90,6 +102,7 @@ watch(
             baseUrl: '',
             apiKey: '',
             model: '',
+            platform: 'openai',
             protocol: 'auto',
             enabled: true,
             timeout: 30000,
@@ -101,6 +114,11 @@ watch(
     formRef.value?.clearValidate();
   }
 );
+
+function selectPlatform(platform: RelayPlatform): void {
+  form.platform = platform;
+  modelSearch.value = '';
+}
 
 async function loadApiKey(relay: Relay): Promise<void> {
   cancelApiKeyLoad();
@@ -138,7 +156,7 @@ async function discover(): Promise<void> {
       props.relay && !form.apiKey
         ? await discoverRelayModels(props.relay.id, currentController.signal)
         : await discoverDraftModels(
-            { baseUrl: form.baseUrl, apiKey: form.apiKey!, timeout: form.timeout },
+            { baseUrl: form.baseUrl, apiKey: form.apiKey!, platform: form.platform, timeout: form.timeout },
             currentController.signal
           );
     modelOptions.value = models.map((value) => ({ value }));
@@ -215,6 +233,17 @@ onBeforeUnmount(() => {
       <a-form-item label="名称" name="name" :rules="[{ required: true, message: '请输入中转站名称' }]">
         <a-input v-model:value="form.name" :maxlength="80" placeholder="例如：主力线路" />
       </a-form-item>
+      <a-form-item label="平台类型" name="platform">
+        <a-segmented
+          :value="form.platform"
+          block
+          :options="[
+            { label: 'OpenAI', value: 'openai' },
+            { label: 'Anthropic', value: 'anthropic' }
+          ]"
+          @update:value="selectPlatform"
+        />
+      </a-form-item>
       <a-form-item
         label="Base URL"
         name="baseUrl"
@@ -240,7 +269,7 @@ onBeforeUnmount(() => {
             :options="filteredModelOptions"
             :filter-option="false"
             style="width: 100%"
-            placeholder="例如：gpt-4.1-mini"
+            :placeholder="isAnthropic ? '例如：claude-sonnet-4-20250514' : '例如：gpt-4.1-mini'"
             @search="modelSearch = $event"
             @select="modelSearch = ''"
           />
@@ -250,7 +279,7 @@ onBeforeUnmount(() => {
           </a-button>
         </a-space-compact>
       </a-form-item>
-      <a-form-item label="请求协议" name="protocol">
+      <a-form-item v-if="!isAnthropic" label="请求协议" name="protocol">
         <a-segmented
           v-model:value="form.protocol"
           block

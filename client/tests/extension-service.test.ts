@@ -56,6 +56,7 @@ const relayInput: RelayFormValue = {
   baseUrl: 'https://api.example.com/v1/',
   apiKey: 'sk-secret-value',
   model: 'gpt-test',
+  platform: 'openai',
   protocol: 'auto',
   enabled: true,
   timeout: 30000,

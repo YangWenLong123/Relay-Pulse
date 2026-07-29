@@ -1,4 +1,4 @@
-import type { ApiEnvelope, Relay, RelayFormValue, RelayProtocol, TestResult } from '../types';
+import type { ApiEnvelope, Relay, RelayFormValue, RelayPlatform, RelayProtocol, TestResult } from '../types';
 import { ExtensionRelayService } from '../extension/service';
 import { createBrowserExtensionStorage } from '../extension/storage';
 import { isStandaloneExtensionRuntime } from '../utils/runtime';
@@ -83,7 +83,7 @@ export async function discoverRelayModels(id: string, signal?: AbortSignal): Pro
 }
 
 export async function discoverDraftModels(
-  value: { baseUrl: string; apiKey: string; timeout: number },
+  value: { baseUrl: string; apiKey: string; platform: RelayPlatform; timeout: number },
   signal?: AbortSignal
 ): Promise<string[]> {
   if (standaloneExtension) return localService().discoverDraftModels(value, signal);

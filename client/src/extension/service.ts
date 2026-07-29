@@ -1,4 +1,4 @@
-import type { BalanceConfigFormValue, BalanceTemplate, Relay, RelayFormValue, RelayProtocol, TestErrorType, TestResult } from '../types';
+import type { BalanceConfigFormValue, BalanceTemplate, Relay, RelayFormValue, RelayPlatform, RelayProtocol, TestErrorType, TestResult } from '../types';
 import { queryBalance } from './balance-query';
 import { ExtensionRelayTester, type RelayTestClient } from './relay-tester';
 import { normalizeBaseUrl, publicRelay, type StoredRelay } from './relay-utils';
@@ -6,6 +6,7 @@ import type { ExtensionStorage } from './storage';
 
 const stateKey = 'relay-pulse-state-v1';
 const protocols = new Set<RelayProtocol>(['auto', 'responses', 'chat']);
+const platforms = new Set<RelayPlatform>(['openai', 'anthropic']);
 const balanceTemplates = new Set<BalanceTemplate>(['generic', 'newapi']);
 const testErrorTypes = new Set<TestErrorType>([
   'auth',
@@ -49,6 +50,7 @@ function isStoredRelay(value: unknown): value is StoredRelay {
     typeof value.baseUrl === 'string' &&
     typeof value.apiKey === 'string' &&
     typeof value.model === 'string' &&
+    (value.platform === undefined || platforms.has(value.platform as RelayPlatform)) &&
     protocols.has(value.protocol as RelayProtocol) &&
     typeof value.enabled === 'boolean' &&
     typeof value.timeout === 'number' &&
@@ -84,7 +86,7 @@ function isTestResult(value: unknown): value is TestResult {
     typeof value.relayId === 'string' &&
     typeof value.relayName === 'string' &&
     typeof value.model === 'string' &&
-    (value.protocol === 'responses' || value.protocol === 'chat') &&
+    (value.protocol === 'responses' || value.protocol === 'chat' || value.protocol === 'anthropic') &&
     (value.statusCode === null || typeof value.statusCode === 'number') &&
     typeof value.responseText === 'string' &&
     typeof value.totalDuration === 'number' &&
@@ -137,6 +139,11 @@ function apiKey(value: unknown): string {
 function protocol(value: unknown): RelayProtocol {
   if (!protocols.has(value as RelayProtocol)) throw new Error('请求协议无效');
   return value as RelayProtocol;
+}
+
+function platform(value: unknown): RelayPlatform {
+  if (!platforms.has(value as RelayPlatform)) throw new Error('平台类型无效');
+  return value as RelayPlatform;
 }
 
 function timeout(value: unknown): number {
@@ -208,6 +215,7 @@ export class ExtensionRelayService {
         baseUrl: normalizeBaseUrl(text(value.baseUrl, 'Base URL', 500)),
         apiKey: apiKey(value.apiKey),
         model: text(value.model, '模型', 160),
+        platform: platform(value.platform),
         protocol: protocol(value.protocol),
         enabled: value.enabled,
         timeout: timeout(value.timeout),
@@ -235,6 +243,7 @@ export class ExtensionRelayService {
         baseUrl: value.baseUrl === undefined ? current.baseUrl : normalizeBaseUrl(text(value.baseUrl, 'Base URL', 500)),
         apiKey: value.apiKey?.trim() ? apiKey(value.apiKey) : current.apiKey,
         model: value.model === undefined ? current.model : text(value.model, '模型', 160),
+        platform: value.platform === undefined ? current.platform ?? 'openai' : platform(value.platform),
         protocol: value.protocol === undefined ? current.protocol : protocol(value.protocol),
         enabled: value.enabled === undefined ? current.enabled : value.enabled,
         timeout: value.timeout === undefined ? current.timeout : timeout(value.timeout),
@@ -343,13 +352,14 @@ export class ExtensionRelayService {
   }
 
   async discoverDraftModels(
-    value: { baseUrl: string; apiKey: string; timeout: number },
+    value: { baseUrl: string; apiKey: string; platform: RelayPlatform; timeout: number },
     signal?: AbortSignal
   ): Promise<string[]> {
     return this.tester.discoverModels(
       {
         baseUrl: normalizeBaseUrl(text(value.baseUrl, 'Base URL', 500)),
         apiKey: apiKey(value.apiKey),
+        platform: platform(value.platform),
         timeout: timeout(value.timeout)
       },
       signal

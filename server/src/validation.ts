@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const protocol = z.enum(['auto', 'responses', 'chat']);
+const platform = z.enum(['openai', 'anthropic']);
 const httpUrl = z
   .string()
   .trim()
@@ -52,6 +53,7 @@ export const relayCreateSchema = z.object({
   baseUrl: httpUrl,
   apiKey: createApiKey,
   model: z.string().trim().min(1, '请输入模型').max(160),
+  platform: platform.default('openai'),
   protocol: protocol.default('auto'),
   enabled: z.boolean().default(true),
   timeout: z.number().int().min(1000).max(120000).default(30000),
@@ -80,6 +82,7 @@ export const batchUpdateSchema = z.object({
 export const discoverSchema = z.object({
   baseUrl: httpUrl,
   apiKey: createApiKey,
+  platform: platform.default('openai'),
   timeout: z.number().int().min(1000).max(120000).default(30000)
 });
 

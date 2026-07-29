@@ -1,11 +1,12 @@
-import type { BalanceConfig, BalanceConfigFormValue, Relay } from '../types';
+import type { BalanceConfig, BalanceConfigFormValue, Relay, RelayPlatform } from '../types';
 
-export interface StoredRelay extends Omit<Relay, 'apiKeyMasked' | 'balanceConfig'> {
+export interface StoredRelay extends Omit<Relay, 'apiKeyMasked' | 'balanceConfig' | 'platform'> {
   apiKey: string;
+  platform?: RelayPlatform;
   balanceConfig?: BalanceConfigFormValue;
 }
 
-const terminalPaths = ['/chat/completions', '/responses', '/models'];
+const terminalPaths = ['/chat/completions', '/responses', '/models', '/messages'];
 
 export function normalizeBaseUrl(value: string): string {
   const url = new URL(value.trim());
@@ -44,6 +45,7 @@ export function publicRelay(relay: StoredRelay): Relay {
   const { apiKey, balanceConfig, ...safe } = relay;
   return {
     ...safe,
+    platform: relay.platform ?? 'openai',
     apiKeyMasked: maskApiKey(apiKey),
     balanceConfig: balanceConfig ? publicBalanceConfig(balanceConfig) : undefined
   };

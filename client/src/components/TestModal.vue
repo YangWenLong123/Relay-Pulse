@@ -58,6 +58,7 @@ const stateLabel = computed(() => ({
 const stateColor = computed(() => ({
   idle: 'default', running: 'processing', success: 'success', failed: 'error', cancelled: 'default', timeout: 'warning'
 }[state.value]));
+const isAnthropic = computed(() => props.relay?.platform === 'anthropic');
 
 async function discover(): Promise<void> {
   if (!props.relay) return;
@@ -159,7 +160,7 @@ onBeforeUnmount(cleanupRequests);
             <a-button :loading="discovering" :disabled="state === 'running'" @click="discover"><template #icon><ApiOutlined /></template>探测模型</a-button>
           </a-space-compact>
         </a-form-item>
-        <a-form-item label="请求协议">
+        <a-form-item v-if="!isAnthropic" label="请求协议">
           <a-segmented
             v-model:value="protocol"
             block

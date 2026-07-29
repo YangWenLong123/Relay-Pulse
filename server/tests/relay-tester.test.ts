@@ -8,6 +8,7 @@ const relay: Relay = {
   baseUrl: 'https://api.example.com/v1',
   apiKey: 'sk-secret-value',
   model: 'gpt-test',
+  platform: 'openai',
   protocol: 'auto',
   enabled: true,
   timeout: 1000,
@@ -124,5 +125,31 @@ describe('RelayTester', () => {
   it('sanitizes model discovery error bodies', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(`upstream echoed ${relay.apiKey}`, { status: 500 })));
     await expect(new RelayTester().discoverModels(relay)).rejects.not.toThrow(relay.apiKey);
+  });
+
+  it('uses the Anthropic Messages API and authentication headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ content: [{ type: 'text', text: 'hello from Claude' }] }), { status: 200 })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await new RelayTester().test({ ...relay, platform: 'anthropic' });
+
+    expect(result.success).toBe(true);
+    expect(result.protocol).toBe('anthropic');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/v1/messages',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'x-api-key': relay.apiKey, 'anthropic-version': '2023-06-01' })
+      })
+    );
+  });
+
+  it('provides Claude model options when an Anthropic relay has no model-list endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404 })));
+
+    await expect(new RelayTester().discoverModels({ ...relay, platform: 'anthropic' })).resolves.toContain(
+      'claude-sonnet-4-20250514'
+    );
   });
 });

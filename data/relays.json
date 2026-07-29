@@ -10,7 +10,7 @@
     "remark": "",
     "id": "6e0c51f4-10cb-4bcf-8bbc-9d8840b5f154",
     "createdAt": "2026-07-28T09:31:57.380Z",
-    "updatedAt": "2026-07-29T05:57:29.036Z",
+    "updatedAt": "2026-07-29T06:37:53.961Z",
     "lastTestAt": "2026-07-29T05:50:25.697Z",
     "lastTestStatus": "success",
     "lastLatency": 3865,
@@ -22,10 +22,11 @@
       "planName": "GPT Pro 体验额度（10刀）",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T05:57:28.479Z",
+      "queriedAt": "2026-07-29T06:37:53.367Z",
       "dailyUsageDate": "2026-07-29",
       "dailyConsumed": 0.015234999999998777
     },
+    "platform": "openai",
     "balanceConfig": {
       "template": "generic",
       "requestUrl": "https://api.uselunora.com",
@@ -48,22 +49,23 @@
     "remark": "",
     "id": "84bb71cc-f583-4c85-8fa6-bd5e30fccfc5",
     "createdAt": "2026-07-29T01:41:14.150Z",
-    "updatedAt": "2026-07-29T05:57:29.026Z",
+    "updatedAt": "2026-07-29T06:37:53.887Z",
     "lastTestAt": "2026-07-29T05:50:25.551Z",
     "lastTestStatus": "success",
     "lastLatency": 3718,
     "balance": {
-      "remaining": 0.55969572,
+      "remaining": 0.07111313,
       "total": null,
       "used": null,
       "unit": "USD",
       "planName": "钱包余额",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T05:57:28.476Z",
+      "queriedAt": "2026-07-29T06:37:53.366Z",
       "dailyUsageDate": "2026-07-29",
-      "dailyConsumed": 0.35922896000000004
+      "dailyConsumed": 0.8478115500000001
     },
+    "platform": "openai",
     "balanceConfig": {
       "template": "generic",
       "requestUrl": "https://api.super-nb.me/v1/usage",
@@ -86,10 +88,10 @@
     "remark": "",
     "id": "cd67113e-dffb-4268-bbca-c69cd1b55657",
     "createdAt": "2026-07-29T05:24:09.779Z",
-    "updatedAt": "2026-07-29T05:57:31.221Z",
-    "lastTestAt": "2026-07-29T05:50:02.626Z",
-    "lastTestStatus": "failed",
-    "lastLatency": 2695,
+    "updatedAt": "2026-07-29T06:38:11.438Z",
+    "lastTestAt": "2026-07-29T06:38:11.437Z",
+    "lastTestStatus": "success",
+    "lastLatency": 3225,
     "balance": {
       "remaining": 29.98181,
       "total": 30,
@@ -98,10 +100,11 @@
       "planName": "default",
       "success": true,
       "errorMessage": "",
-      "queriedAt": "2026-07-29T05:57:28.481Z",
+      "queriedAt": "2026-07-29T06:37:53.368Z",
       "dailyUsageDate": "2026-07-29",
       "dailyConsumed": 0
     },
+    "platform": "openai",
     "balanceConfig": {
       "template": "newapi",
       "requestUrl": "https://ooioo.work",
@@ -112,5 +115,44 @@
       "enabled": true
     },
     "apiKeyMasked": "sk-T************Tcxg"
+  },
+  {
+    "name": "Unity2.AI",
+    "baseUrl": "https://api.unity2.ai",
+    "apiKey": "sk-6c53b54efe7c9479008d31bd2e965b807cd0f8c69f39830413dd588f3221fce0",
+    "model": "claude-opus-4-8",
+    "platform": "anthropic",
+    "protocol": "auto",
+    "enabled": true,
+    "timeout": 30000,
+    "remark": "",
+    "id": "e598651c-6ed8-46d2-b989-19ea9f8985d2",
+    "createdAt": "2026-07-29T06:35:53.214Z",
+    "updatedAt": "2026-07-29T06:38:14.207Z",
+    "lastTestAt": "2026-07-29T06:37:46.969Z",
+    "lastTestStatus": "success",
+    "lastLatency": 3059,
+    "balance": {
+      "remaining": 23.49539255,
+      "total": null,
+      "used": null,
+      "unit": "USD",
+      "planName": "钱包余额",
+      "success": true,
+      "errorMessage": "",
+      "queriedAt": "2026-07-29T06:38:12.933Z",
+      "dailyUsageDate": "2026-07-29",
+      "dailyConsumed": 0.0003870000000034679
+    },
+    "balanceConfig": {
+      "template": "generic",
+      "requestUrl": "https://api.unity2.ai",
+      "apiKey": "sk-6c53b54efe7c9479008d31bd2e965b807cd0f8c69f39830413dd588f3221fce0",
+      "userId": "",
+      "timeout": 10000,
+      "intervalMinutes": 1,
+      "enabled": true
+    },
+    "apiKeyMasked": "sk-6************fce0"
   }
 ]

@@ -1,4 +1,6 @@
 export type RelayProtocol = 'auto' | 'responses' | 'chat';
+export type RelayPlatform = 'openai' | 'anthropic';
+export type TestProtocol = Exclude<RelayProtocol, 'auto'> | 'anthropic';
 export type TestStatus = 'success' | 'failed' | 'untested';
 export type BalanceTemplate = 'generic' | 'newapi';
 
@@ -37,6 +39,7 @@ export interface Relay {
   baseUrl: string;
   apiKey: string;
   model: string;
+  platform: RelayPlatform;
   protocol: RelayProtocol;
   enabled: boolean;
   timeout: number;
@@ -77,7 +80,7 @@ export interface TestResult {
   relayId: string;
   relayName: string;
   model: string;
-  protocol: Exclude<RelayProtocol, 'auto'>;
+  protocol: TestProtocol;
   statusCode: number | null;
   responseText: string;
   totalDuration: number;
@@ -101,6 +104,7 @@ export interface RelayInput {
   baseUrl: string;
   apiKey: string;
   model: string;
+  platform: RelayPlatform;
   protocol: RelayProtocol;
   enabled: boolean;
   timeout: number;

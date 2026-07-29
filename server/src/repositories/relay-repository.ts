@@ -5,11 +5,12 @@ import { HttpError } from '../lib/http-error.js';
 import { JsonStore } from '../lib/json-store.js';
 import { KeyCipher } from '../lib/key-cipher.js';
 import { maskApiKey, normalizeBaseUrl } from '../lib/relay-utils.js';
-import type { BalanceConfig, BalanceSnapshot, PublicBalanceConfig, PublicRelay, Relay, RelayInput, TestResult } from '../types.js';
+import type { BalanceConfig, BalanceSnapshot, PublicBalanceConfig, PublicRelay, Relay, RelayInput, RelayPlatform, TestResult } from '../types.js';
 
 type StoredBalanceConfig = Omit<BalanceConfig, 'apiKey' | 'accessToken'> & { apiKey?: string; accessToken?: string };
-type StoredRelay = Omit<Relay, 'apiKey' | 'balanceConfig'> & {
+type StoredRelay = Omit<Relay, 'apiKey' | 'balanceConfig' | 'platform'> & {
   apiKey: string;
+  platform?: RelayPlatform;
   apiKeyMasked?: string;
   balanceConfig?: StoredBalanceConfig;
 };
@@ -106,6 +107,7 @@ export class RelayRepository {
       baseUrl: source.baseUrl,
       apiKey: source.apiKey,
       model: source.model,
+      platform: source.platform,
       protocol: source.protocol,
       enabled: source.enabled,
       timeout: source.timeout,
@@ -189,6 +191,7 @@ export class RelayRepository {
     void apiKeyMasked;
     return {
       ...stored,
+      platform: relay.platform ?? 'openai',
       apiKey: this.cipher.decrypt(relay.apiKey),
       balanceConfig: balanceConfig
         ? {
@@ -204,6 +207,7 @@ export class RelayRepository {
     const { apiKey, apiKeyMasked, balanceConfig, ...safe } = relay;
     return {
       ...safe,
+      platform: relay.platform ?? 'openai',
       apiKeyMasked: apiKeyMasked ?? maskApiKey(this.cipher.decrypt(apiKey)),
       balanceConfig: balanceConfig ? this.toPublicBalanceConfig(balanceConfig) : undefined
     };

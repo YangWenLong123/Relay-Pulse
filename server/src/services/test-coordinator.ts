@@ -136,7 +136,7 @@ export class TestCoordinator {
       relayId: id,
       relayName: relay?.name ?? '未知中转站',
       model: relay?.model ?? '',
-      protocol: relay?.protocol === 'chat' ? 'chat' : 'responses',
+      protocol: relay?.platform === 'anthropic' ? 'anthropic' : relay?.protocol === 'chat' ? 'chat' : 'responses',
       statusCode: httpError?.status ?? null,
       responseText: '',
       totalDuration: 0,
