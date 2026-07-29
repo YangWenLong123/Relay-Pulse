@@ -19,11 +19,11 @@ Relay Pulse 是一个本地运行的 AI 中转站连接测试工具。它管理 
 
 ### 批量测试
 
-![批量测试预览](docs/images/batch-test.png)
+![批量测试预览](image-1.png)
 
 ### 单个测试
 
-![单个测试预览](docs/images/single-test.png)
+![单个测试预览](image.png)
 
 ## 环境要求
 
@@ -92,17 +92,17 @@ Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加�
 
 根目录 `.env` 支持：
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `SERVER_PORT` | `3100` | API 端口 |
-| `SERVER_HOST` | `127.0.0.1` | API 监听地址；默认仅允许本机访问 |
-| `CLIENT_ORIGIN` | `http://localhost:5173` | 允许的网页前端来源，多个值使用英文逗号分隔 |
-| `ALLOW_EXTENSION_ORIGINS` | `true` | 是否允许格式合法的浏览器扩展来源访问本机 API |
-| `DATA_DIR` | `./data` | JSON 数据目录 |
-| `HISTORY_LIMIT` | `1000` | 历史记录上限 |
-| `BATCH_CONCURRENCY` | `4` | 服务端批测并发数，最高 10 |
-| `API_KEY_ENCRYPTION_SECRET` | 空 | 可选；设置后使用 AES-256-GCM 加密本地 API Key |
-| `VITE_API_BASE_URL` | `/api` | 前端 API 地址，配置在 `client/.env*` 中 |
+| 变量                        | 默认值                  | 说明                                          |
+| --------------------------- | ----------------------- | --------------------------------------------- |
+| `SERVER_PORT`               | `3100`                  | API 端口                                      |
+| `SERVER_HOST`               | `127.0.0.1`             | API 监听地址；默认仅允许本机访问              |
+| `CLIENT_ORIGIN`             | `http://localhost:5173` | 允许的网页前端来源，多个值使用英文逗号分隔    |
+| `ALLOW_EXTENSION_ORIGINS`   | `true`                  | 是否允许格式合法的浏览器扩展来源访问本机 API  |
+| `DATA_DIR`                  | `./data`                | JSON 数据目录                                 |
+| `HISTORY_LIMIT`             | `1000`                  | 历史记录上限                                  |
+| `BATCH_CONCURRENCY`         | `4`                     | 服务端批测并发数，最高 10                     |
+| `API_KEY_ENCRYPTION_SECRET` | 空                      | 可选；设置后使用 AES-256-GCM 加密本地 API Key |
+| `VITE_API_BASE_URL`         | `/api`                  | 前端 API 地址，配置在 `client/.env*` 中       |
 
 Vite 的环境变量需要放在 `client/.env` 中。开发环境默认通过 Vite 代理访问本地 API，因此通常不需要额外配置。扩展模式使用 `client/.env.extension`，默认连接 `http://127.0.0.1:3100/api`。
 
