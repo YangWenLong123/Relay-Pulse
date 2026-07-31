@@ -1,4 +1,4 @@
-const terminalPaths = ['/chat/completions', '/responses', '/models'];
+const terminalPaths = ['/chat/completions', '/responses', '/models', '/messages'];
 export function normalizeBaseUrl(value) {
     const url = new URL(value.trim());
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {

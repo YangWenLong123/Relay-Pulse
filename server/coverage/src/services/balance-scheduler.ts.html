@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.35% </span>
+                <span class="strong">5.88% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>28/34</span>
+                <span class='fraction'>2/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.14% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/7</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.35% </span>
+                <span class="strong">5.88% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>28/34</span>
+                <span class='fraction'>2/34</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -108,81 +108,81 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { config } from '../config.js';
 import { RelayRepository } from '../repositories/relay-repository.js';
 import { BalanceService } from './balance-service.js';
 &nbsp;
-export class BalanceScheduler {
-  private timer: NodeJS.Timeout | undefined;
-  private running = false;
+export class BalanceScheduler <span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >{</span></span>
+<span class="cstat-no" title="statement not covered" >  private timer: NodeJS.Timeout | undefined;</span>
+<span class="cstat-no" title="statement not covered" >  private running = false;</span>
 &nbsp;
-  constructor(
-    private readonly relays: RelayRepository,
-    private readonly balance: BalanceService
-  ) {}
+<span class="cstat-no" title="statement not covered" >  constructor(</span>
+<span class="cstat-no" title="statement not covered" >    private readonly relays: RelayRepository,</span>
+<span class="cstat-no" title="statement not covered" >    private readonly balance: BalanceService</span>
+<span class="cstat-no" title="statement not covered" >  ) {}</span>
 &nbsp;
-  start(): void {
-    if (this.timer) <span class="branch-0 cbranch-no" title="branch not covered" >return;</span>
-    void this.refreshDueBalances();
-    this.timer = setInterval(() =&gt; void this.refreshDueBalances(), 60_000);
-    this.timer.unref();
-  }
+<span class="cstat-no" title="statement not covered" >  start(): void {</span>
+<span class="cstat-no" title="statement not covered" >    if (this.timer) return;</span>
+<span class="cstat-no" title="statement not covered" >    void this.refreshDueBalances();</span>
+<span class="cstat-no" title="statement not covered" >    this.timer = setInterval(() =&gt; void this.refreshDueBalances(), 60_000);</span>
+<span class="cstat-no" title="statement not covered" >    this.timer.unref();</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
 &nbsp;
-  async refreshDueBalances(): Promise&lt;void&gt; {
-    if (this.running) <span class="branch-0 cbranch-no" title="branch not covered" >return;</span>
-    this.running = true;
-    try {
-      const now = Date.now();
-      const relays = await this.relays.list();
-      const due = relays.filter((relay) =&gt; {
+<span class="cstat-no" title="statement not covered" >  async refreshDueBalances(): Promise&lt;void&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (this.running) return;</span>
+<span class="cstat-no" title="statement not covered" >    this.running = true;</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      const now = Date.now();</span>
+<span class="cstat-no" title="statement not covered" >      const relays = await this.relays.list();</span>
+<span class="cstat-no" title="statement not covered" >      const due = relays.filter((relay) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        const query = relay.balanceConfig;</span>
 <span class="cstat-no" title="statement not covered" >        if (!query?.enabled || query.intervalMinutes &lt;= 0 || !relay.balance?.queriedAt) return Boolean(query?.enabled &amp;&amp; query.intervalMinutes &gt; 0 &amp;&amp; !relay.balance?.queriedAt);</span>
 <span class="cstat-no" title="statement not covered" >        const previous = Date.parse(relay.balance.queriedAt);</span>
 <span class="cstat-no" title="statement not covered" >        return Number.isFinite(previous) &amp;&amp; now - previous &gt;= query.intervalMinutes * 60_000;</span>
-      });
-      for (let index = 0; index &lt; due.length; index += config.batchConcurrency) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
+<span class="cstat-no" title="statement not covered" >      });</span>
+<span class="cstat-no" title="statement not covered" >      for (let index = 0; index &lt; due.length; index += config.batchConcurrency) {</span>
 <span class="cstat-no" title="statement not covered" >        await Promise.allSettled(due.slice(index, index + config.batchConcurrency).map((relay) =&gt; this.balance.query(relay.id)));</span>
 <span class="cstat-no" title="statement not covered" >      }</span>
-    } finally {
-      this.running = false;
-    }
-  }
-}
+<span class="cstat-no" title="statement not covered" >    } finally {</span>
+<span class="cstat-no" title="statement not covered" >      this.running = false;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -190,7 +190,7 @@ export class BalanceScheduler {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-29T02:53:04.489Z
+                at 2026-07-31T05:12:30.448Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

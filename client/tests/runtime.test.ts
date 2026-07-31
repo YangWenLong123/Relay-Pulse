@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isExtensionProtocol, isStandaloneExtensionRuntime, resolveApiBaseUrl } from '../src/utils/runtime';
+import {
+  extensionDataMode,
+  isExtensionProtocol,
+  isStandaloneExtensionRuntime,
+  resolveApiBaseUrl
+} from '../src/utils/runtime';
 
 describe('extension runtime', () => {
   it('recognizes major browser extension protocols', () => {
@@ -9,15 +14,20 @@ describe('extension runtime', () => {
     expect(isExtensionProtocol('https:')).toBe(false);
   });
 
-  it('detects standalone extension builds without requiring an extension URL', () => {
-    expect(isStandaloneExtensionRuntime('extension', 'http:')).toBe(true);
-    expect(isStandaloneExtensionRuntime(undefined, 'moz-extension:')).toBe(true);
+  it('defaults extension builds to backend mode and only uses standalone when configured', () => {
+    expect(extensionDataMode(undefined)).toBe('backend');
+    expect(extensionDataMode('standalone')).toBe('standalone');
+    expect(isStandaloneExtensionRuntime('extension', 'http:')).toBe(false);
+    expect(isStandaloneExtensionRuntime(undefined, 'moz-extension:')).toBe(false);
+    expect(isStandaloneExtensionRuntime('extension', 'http:', 'standalone')).toBe(true);
+    expect(isStandaloneExtensionRuntime(undefined, 'moz-extension:', 'standalone')).toBe(true);
     expect(isStandaloneExtensionRuntime('web', 'https:')).toBe(false);
   });
 
-  it('keeps the web proxy default and normalizes configured URLs', () => {
+  it('uses the local backend default for extension backend mode and normalizes configured URLs', () => {
     expect(resolveApiBaseUrl(undefined, 'http:')).toBe('/api');
-    expect(resolveApiBaseUrl(undefined, 'chrome-extension:')).toBe('/api');
-    expect(resolveApiBaseUrl(' http://localhost:4100/api/ ', 'moz-extension:')).toBe('http://localhost:4100/api');
+    expect(resolveApiBaseUrl(undefined, 'chrome-extension:', 'extension')).toBe('http://127.0.0.1:3100/api');
+    expect(resolveApiBaseUrl(undefined, 'chrome-extension:', 'extension', 'standalone')).toBe('/api');
+    expect(resolveApiBaseUrl(' http://localhost:4100/api/ ', 'moz-extension:', 'extension')).toBe('http://localhost:4100/api');
   });
 });

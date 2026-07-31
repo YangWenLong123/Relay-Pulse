@@ -9,6 +9,13 @@ const distDir = path.join(projectRoot, 'extension/dist');
 const packagesDir = path.join(projectRoot, 'extension/packages');
 const chromiumArchive = path.join(packagesDir, 'relay-pulse-chromium.zip');
 const firefoxArchive = path.join(packagesDir, 'relay-pulse-firefox.xpi');
+const extensionEnv = await readFile(path.join(projectRoot, 'client/.env.extension'), 'utf8').catch(() => '');
+const configuredExtensionDataMode =
+  process.env.VITE_EXTENSION_DATA_MODE ??
+  /^VITE_EXTENSION_DATA_MODE\s*=\s*(\w+)\s*$/im.exec(extensionEnv)?.[1];
+const extensionDataMode = configuredExtensionDataMode?.trim().toLowerCase() === 'standalone'
+  ? 'standalone'
+  : 'backend';
 
 await access(path.join(distDir, 'index.html'));
 await cp(sourceDir, distDir, { recursive: true, force: true });
@@ -45,11 +52,15 @@ if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(indexHtml)) {
 
 const assetFiles = (await readdir(path.join(distDir, 'assets'))).filter((file) => file.endsWith('.js'));
 const bundledJavaScript = (await Promise.all(assetFiles.map((file) => readFile(path.join(distDir, 'assets', file), 'utf8')))).join('\n');
-if (!bundledJavaScript.includes('relay-pulse-state-v1')) {
+if (extensionDataMode === 'standalone' && !bundledJavaScript.includes('relay-pulse-state-v1')) {
   throw new Error('扩展构建未包含浏览器本地存储服务');
 }
-if (/https?:\/\/(?:127\.0\.0\.1|localhost):3100\/api/.test(bundledJavaScript)) {
-  throw new Error('扩展构建仍包含本地后端 API 地址');
+const hasLocalBackendApi = /https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/api/.test(bundledJavaScript);
+if (extensionDataMode === 'backend' && !hasLocalBackendApi) {
+  throw new Error('扩展后端模式缺少本机后端 API 地址');
+}
+if (extensionDataMode === 'standalone' && hasLocalBackendApi) {
+  throw new Error('扩展 standalone 模式不应包含本机后端 API 地址');
 }
 
 await mkdir(packagesDir, { recursive: true });

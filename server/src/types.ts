@@ -111,3 +111,158 @@ export interface RelayInput {
   remark: string;
   balanceConfig?: BalanceConfig;
 }
+
+export interface CcSwitchImportCandidate {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKeyMasked: string;
+  model: string;
+  platform: RelayPlatform;
+  protocol: RelayProtocol;
+  source: 'codex' | 'claude';
+  isCurrent: boolean;
+  alreadyExists: boolean;
+}
+
+export interface CcSwitchImportPreview {
+  candidates: CcSwitchImportCandidate[];
+  unsupportedCount: number;
+  invalidCount: number;
+}
+
+export interface CcSwitchImportResult {
+  imported: PublicRelay[];
+  duplicateCount: number;
+}
+
+export interface CcSwitchExportResult {
+  id: string;
+  appType: 'codex' | 'claude';
+  name: string;
+  created: boolean;
+}
+
+export type PoolEndpoint = '/v1/chat/completions' | '/v1/responses' | '/v1/messages';
+export type PoolRoutingStrategy = 'round-robin' | 'random';
+export type PoolUsageStatus = 'success' | 'failed';
+export type PoolUsageGranularity = 'hour' | 'day';
+
+export interface PoolBalanceSummary {
+  unit: string;
+  currentBalance: number;
+  consumedBalance: number;
+}
+
+export interface PoolRelayBalanceUsage {
+  relayId: string;
+  relayName: string;
+  unit: string;
+  initialBalance: number | null;
+  currentBalance: number | null;
+  consumedBalance: number | null;
+}
+
+export interface PoolStatus {
+  active: boolean;
+  host: string;
+  port: number | null;
+  baseUrl: string | null;
+  startedAt: string | null;
+  eligibleRelayCount: number;
+  cooldownRelayCount: number;
+  routingStrategy: PoolRoutingStrategy;
+  relayIds: string[];
+  platform: RelayPlatform | null;
+  apiKey: string;
+  balanceSummary: PoolBalanceSummary[];
+  balanceDetails: PoolRelayBalanceUsage[];
+}
+
+export interface PoolStartResult extends PoolStatus {
+  apiKey: string;
+}
+
+export interface PoolUsageRecord {
+  id: string;
+  createdAt: string;
+  relayId: string | null;
+  relayName: string;
+  endpoint: PoolEndpoint;
+  model: string;
+  status: PoolUsageStatus;
+  statusCode: number | null;
+  attempts: number;
+  firstByteMs: number | null;
+  durationMs: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cachedTokens: number | null;
+  totalTokens: number | null;
+  cost: number | null;
+  errorCode: string;
+  errorMessage: string;
+}
+
+export interface PoolUsageQuery {
+  from?: string;
+  to?: string;
+  model?: string;
+  relayId?: string;
+  endpoint?: PoolEndpoint;
+  status?: PoolUsageStatus;
+  limit: number;
+  offset: number;
+  granularity: PoolUsageGranularity;
+}
+
+export interface PoolUsageSummary {
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  totalTokens: number;
+  averageDurationMs: number;
+}
+
+export interface PoolUsageBreakdown {
+  key: string;
+  label: string;
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  totalTokens: number;
+  averageDurationMs: number;
+}
+
+export interface PoolUsageTrendPoint {
+  bucket: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  totalTokens: number;
+}
+
+export interface PoolUsageFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface PoolUsageFilterOptions {
+  models: PoolUsageFilterOption[];
+  relays: PoolUsageFilterOption[];
+}
+
+export interface PoolUsageReport {
+  records: PoolUsageRecord[];
+  total: number;
+  summary: PoolUsageSummary;
+  byModel: PoolUsageBreakdown[];
+  byRelay: PoolUsageBreakdown[];
+  byEndpoint: PoolUsageBreakdown[];
+  trend: PoolUsageTrendPoint[];
+  filterOptions: PoolUsageFilterOptions;
+}

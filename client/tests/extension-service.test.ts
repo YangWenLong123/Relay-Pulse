@@ -93,6 +93,16 @@ describe('ExtensionRelayService', () => {
     expect(await service.listRelays()).toHaveLength(20);
   });
 
+  it('persists a custom relay order', async () => {
+    const service = new ExtensionRelayService(new MemoryStorage(), new FakeTester());
+    const first = await service.createRelay({ ...relayInput, name: '线路一' });
+    const second = await service.createRelay({ ...relayInput, name: '线路二' });
+    const third = await service.createRelay({ ...relayInput, name: '线路三' });
+
+    await expect(service.reorderRelays([first.id, third.id, second.id])).resolves.toHaveLength(3);
+    expect((await service.listRelays()).map((relay) => relay.id)).toEqual([first.id, third.id, second.id]);
+  });
+
   it('limits history and supports filters and clearing', async () => {
     const service = new ExtensionRelayService(new MemoryStorage(), new FakeTester(), 2);
     const relay = await service.createRelay(relayInput);

@@ -4,7 +4,12 @@ import { resolveApiBaseUrl } from '../utils/runtime';
 const runtimeProtocol = typeof window === 'undefined' ? '' : window.location.protocol;
 
 export const http = axios.create({
-  baseURL: resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL, runtimeProtocol),
+  baseURL: resolveApiBaseUrl(
+    import.meta.env.VITE_API_BASE_URL,
+    runtimeProtocol,
+    import.meta.env.VITE_BUILD_TARGET,
+    import.meta.env.VITE_EXTENSION_DATA_MODE
+  ),
   timeout: 130000,
   headers: { 'Content-Type': 'application/json' }
 });

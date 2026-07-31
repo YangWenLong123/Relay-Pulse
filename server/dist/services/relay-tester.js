@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { endpointUrl } from '../lib/relay-utils.js';
+export const ANTHROPIC_MODEL_FALLBACKS = [
+    'claude-opus-4-1-20250805',
+    'claude-opus-4-20250514',
+    'claude-sonnet-4-20250514',
+    'claude-3-7-sonnet-20250219',
+    'claude-3-5-haiku-20241022'
+];
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -139,7 +146,11 @@ export class RelayTester {
         let usedProtocol = requestedProtocol === 'chat' ? 'chat' : 'responses';
         try {
             let attempt;
-            if (requestedProtocol === 'auto') {
+            if (relay.platform === 'anthropic') {
+                usedProtocol = 'anthropic';
+                attempt = await this.attemptAnthropic(relay, model, message, options.signal);
+            }
+            else if (requestedProtocol === 'auto') {
                 try {
                     attempt = await this.attempt(relay, model, message, 'responses', options.signal);
                 }
@@ -176,6 +187,7 @@ export class RelayTester {
         }
     }
     async discoverModels(relay, signal) {
+        const platform = relay.platform ?? 'openai';
         const controller = new AbortController();
         let timedOut = false;
         const timeout = setTimeout(() => {
@@ -188,7 +200,9 @@ export class RelayTester {
             controller.abort();
         try {
             const response = await fetch(endpointUrl(relay.baseUrl, '/v1/models'), {
-                headers: { Authorization: `Bearer ${relay.apiKey}`, Accept: 'application/json' },
+                headers: platform === 'anthropic'
+                    ? { 'x-api-key': relay.apiKey, 'anthropic-version': '2023-06-01', Accept: 'application/json' }
+                    : { Authorization: `Bearer ${relay.apiKey}`, Accept: 'application/json' },
                 signal: controller.signal
             });
             const body = await response.text();
@@ -201,10 +215,15 @@ export class RelayTester {
             catch {
                 throw makeFailure('模型列表返回了无法解析的内容', 'invalid_response', response.status);
             }
-            return extractModelIds(payload);
+            const models = extractModelIds(payload);
+            return platform === 'anthropic' && !models.length ? ANTHROPIC_MODEL_FALLBACKS : models;
         }
         catch (error) {
-            if (error.errorType)
+            const failure = error;
+            if (platform === 'anthropic' && ['not_found', 'http_error', 'invalid_response'].includes(failure.errorType ?? '')) {
+                return ANTHROPIC_MODEL_FALLBACKS;
+            }
+            if (failure.errorType)
                 throw error;
             if (controller.signal.aborted) {
                 throw makeFailure(timedOut ? '模型探测超时' : '模型探测已取消', timedOut ? 'timeout' : 'cancelled');
@@ -240,6 +259,59 @@ export class RelayTester {
                     Accept: 'application/json'
                 },
                 body: JSON.stringify(body),
+                signal: controller.signal
+            });
+            const firstByteDuration = Math.round(performance.now() - startedAt);
+            const raw = await response.text();
+            if (!response.ok)
+                throw statusError(response.status, raw, relay.apiKey);
+            let payload;
+            try {
+                payload = JSON.parse(raw);
+            }
+            catch {
+                throw makeFailure('接口返回了非 JSON 内容', 'invalid_response', response.status);
+            }
+            const responseText = extractResponseText(payload);
+            if (!responseText)
+                throw makeFailure('接口返回成功，但模型回复为空', 'invalid_response', response.status);
+            return { responseText, statusCode: response.status, firstByteDuration };
+        }
+        catch (error) {
+            if (error.errorType)
+                throw error;
+            if (controller.signal.aborted) {
+                throw makeFailure(timedOut ? '连接测试超时' : '连接测试已取消', timedOut ? 'timeout' : 'cancelled');
+            }
+            throw makeFailure(sanitizeSecret(error.message || '网络连接失败', relay.apiKey), classifyNetworkError(error));
+        }
+        finally {
+            clearTimeout(timeout);
+            signal?.removeEventListener('abort', abort);
+        }
+    }
+    async attemptAnthropic(relay, model, message, signal) {
+        const controller = new AbortController();
+        let timedOut = false;
+        const startedAt = performance.now();
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, relay.timeout);
+        const abort = () => controller.abort();
+        signal?.addEventListener('abort', abort, { once: true });
+        if (signal?.aborted)
+            controller.abort();
+        try {
+            const response = await fetch(endpointUrl(relay.baseUrl, '/v1/messages'), {
+                method: 'POST',
+                headers: {
+                    'x-api-key': relay.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json'
+                },
+                body: JSON.stringify({ model, max_tokens: 64, messages: [{ role: 'user', content: message }], stream: false }),
                 signal: controller.signal
             });
             const firstByteDuration = Math.round(performance.now() - startedAt);

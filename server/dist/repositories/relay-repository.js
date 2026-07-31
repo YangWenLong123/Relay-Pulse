@@ -39,8 +39,11 @@ export class RelayRepository {
         return this.toPublicRelay(relay);
     }
     async create(input) {
+        return (await this.createMany([input]))[0];
+    }
+    async createMany(inputs) {
         const now = new Date().toISOString();
-        const relay = {
+        const relays = inputs.map((input) => ({
             ...input,
             id: randomUUID(),
             baseUrl: normalizeBaseUrl(input.baseUrl),
@@ -49,9 +52,9 @@ export class RelayRepository {
             lastTestAt: null,
             lastTestStatus: 'untested',
             lastLatency: null
-        };
-        await this.store.update((items) => [...items, this.toStoredRelay(relay)]);
-        return relay;
+        }));
+        await this.store.update((items) => [...items, ...relays.map((relay) => this.toStoredRelay(relay))]);
+        return relays;
     }
     async update(id, input) {
         let updated;
@@ -88,6 +91,7 @@ export class RelayRepository {
             baseUrl: source.baseUrl,
             apiKey: source.apiKey,
             model: source.model,
+            platform: source.platform,
             protocol: source.protocol,
             enabled: source.enabled,
             timeout: source.timeout,
@@ -120,6 +124,20 @@ export class RelayRepository {
             return items.map((item) => updatedMap.get(item.id) ?? item);
         });
         return updated.map((relay) => this.toPublicRelay(relay));
+    }
+    async reorder(ids) {
+        let ordered = [];
+        await this.store.update((items) => {
+            if (ids.length !== items.length)
+                throw new HttpError(400, '排序列表必须包含全部中转站');
+            const byId = new Map(items.map((item) => [item.id, item]));
+            const missing = ids.find((id) => !byId.has(id));
+            if (missing)
+                throw new HttpError(404, `中转站不存在：${missing}`);
+            ordered = ids.map((id) => byId.get(id));
+            return ordered;
+        });
+        return ordered.map((relay) => this.toPublicRelay(relay));
     }
     async applyTestResult(result) {
         await this.store.update((items) => items.map((relay) => relay.id === result.relayId
@@ -163,6 +181,7 @@ export class RelayRepository {
         void apiKeyMasked;
         return {
             ...stored,
+            platform: relay.platform ?? 'openai',
             apiKey: this.cipher.decrypt(relay.apiKey),
             balanceConfig: balanceConfig
                 ? {
@@ -177,6 +196,7 @@ export class RelayRepository {
         const { apiKey, apiKeyMasked, balanceConfig, ...safe } = relay;
         return {
             ...safe,
+            platform: relay.platform ?? 'openai',
             apiKeyMasked: apiKeyMasked ?? maskApiKey(this.cipher.decrypt(apiKey)),
             balanceConfig: balanceConfig ? this.toPublicBalanceConfig(balanceConfig) : undefined
         };

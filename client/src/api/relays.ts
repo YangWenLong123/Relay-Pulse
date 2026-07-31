@@ -1,11 +1,24 @@
-import type { ApiEnvelope, Relay, RelayFormValue, RelayPlatform, RelayProtocol, TestResult } from '../types';
+import type {
+  ApiEnvelope,
+  CcSwitchImportPreview,
+  CcSwitchImportResult,
+  Relay,
+  RelayFormValue,
+  RelayPlatform,
+  RelayProtocol,
+  TestResult
+} from '../types';
 import { ExtensionRelayService } from '../extension/service';
 import { createBrowserExtensionStorage } from '../extension/storage';
 import { isStandaloneExtensionRuntime } from '../utils/runtime';
 import { http } from './http';
 
 const runtimeProtocol = typeof window === 'undefined' ? '' : window.location.protocol;
-const standaloneExtension = isStandaloneExtensionRuntime(import.meta.env.VITE_BUILD_TARGET, runtimeProtocol);
+const standaloneExtension = isStandaloneExtensionRuntime(
+  import.meta.env.VITE_BUILD_TARGET,
+  runtimeProtocol,
+  import.meta.env.VITE_EXTENSION_DATA_MODE
+);
 let extensionService: ExtensionRelayService | undefined;
 
 function localService(): ExtensionRelayService {
@@ -16,6 +29,21 @@ function localService(): ExtensionRelayService {
 export async function listRelays(): Promise<Relay[]> {
   if (standaloneExtension) return localService().listRelays();
   return (await http.get<ApiEnvelope<Relay[]>>('/relays')).data.data;
+}
+
+export async function reorderRelays(relayIds: string[]): Promise<Relay[]> {
+  if (standaloneExtension) return localService().reorderRelays(relayIds);
+  return (await http.patch<ApiEnvelope<Relay[]>>('/relays/order', { relayIds })).data.data;
+}
+
+export async function previewCcSwitchImport(signal?: AbortSignal): Promise<CcSwitchImportPreview> {
+  if (standaloneExtension) throw new Error('浏览器扩展模式无法直接读取电脑上的 CC Switch 数据库');
+  return (await http.get<ApiEnvelope<CcSwitchImportPreview>>('/import/cc-switch', { signal })).data.data;
+}
+
+export async function importFromCcSwitch(candidateIds: string[]): Promise<CcSwitchImportResult> {
+  if (standaloneExtension) throw new Error('浏览器扩展模式无法直接读取电脑上的 CC Switch 数据库');
+  return (await http.post<ApiEnvelope<CcSwitchImportResult>>('/import/cc-switch', { candidateIds })).data.data;
 }
 
 export async function createRelay(value: RelayFormValue): Promise<Relay> {

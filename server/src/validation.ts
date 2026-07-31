@@ -79,6 +79,15 @@ export const batchUpdateSchema = z.object({
   enabled: z.boolean()
 });
 
+export const relayOrderSchema = z.object({
+  relayIds: z.array(z.string().uuid()).min(1).max(200).refine((ids) => new Set(ids).size === ids.length, '中转站 ID 不能重复')
+});
+
+export const ccSwitchImportSchema = z.object({
+  candidateIds: z.array(z.string().trim().min(1).max(240)).min(1).max(500)
+    .refine((ids) => new Set(ids).size === ids.length, '导入项不能重复')
+});
+
 export const discoverSchema = z.object({
   baseUrl: httpUrl,
   apiKey: createApiKey,
@@ -91,4 +100,27 @@ export const historyQuerySchema = z.object({
   success: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional()
+});
+
+export const poolStartSchema = z.object({
+  port: z.number().int().min(0).max(65535).default(0),
+  relayIds: z.array(z.string().uuid()).min(1, '请先向号池添加至少一个中转站').max(200)
+    .refine((ids) => new Set(ids).size === ids.length, '号池中转站不能重复'),
+  routingStrategy: z.enum(['round-robin', 'random']).default('round-robin')
+});
+
+export const poolStrategySchema = z.object({
+  routingStrategy: z.enum(['round-robin', 'random'])
+});
+
+export const poolUsageQuerySchema = z.object({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  model: z.string().trim().min(1).max(160).optional(),
+  relayId: z.string().uuid().optional(),
+  endpoint: z.enum(['/v1/chat/completions', '/v1/responses', '/v1/messages']).optional(),
+  status: z.enum(['success', 'failed']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).max(100000).default(0),
+  granularity: z.enum(['hour', 'day']).default('hour')
 });

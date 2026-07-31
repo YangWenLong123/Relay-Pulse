@@ -1,6 +1,6 @@
 # Relay Pulse 浏览器扩展
 
-扩展提供完整的 Relay Pulse 管理界面，配置、API Key、JSON 数据和中转站测试仍由本机的 Node.js 后端处理。使用扩展前先在项目根目录运行：
+扩展默认以“扩展 UI + 本机后端”模式运行，配置、API Key、CC Switch 导入、号池服务和中转站测试都由本机 Node.js 后端处理。使用扩展前先在项目根目录运行：
 
 ```bash
 npm run start:extension
@@ -47,3 +47,13 @@ VITE_API_BASE_URL=http://127.0.0.1:4100/api npm run build:extension
 ```
 
 同时确保根目录 `.env` 中的 `SERVER_PORT` 与该端口一致。扩展清单允许访问本机任意 HTTP 端口，不允许访问远程 API；所有中转站请求继续由后端发出。
+
+## Standalone 模式
+
+如需构建不依赖本机后端的纯扩展版本，可设置：
+
+```bash
+VITE_EXTENSION_DATA_MODE=standalone npm run build:extension
+```
+
+Standalone 模式使用浏览器扩展本地存储，不能读取 CC Switch 本地数据库，也不能启动本机号池服务。

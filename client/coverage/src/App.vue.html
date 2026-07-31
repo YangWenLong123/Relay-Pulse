@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/28</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/28</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
@@ -96,6 +96,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -106,25 +107,24 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >&lt;script setup lang="ts"&gt;</span></span></span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >&lt;script setup lang="ts"&gt;<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
 <span class="cstat-no" title="statement not covered" >import { computed, watchEffect } from 'vue';</span>
 <span class="cstat-no" title="statement not covered" >import { ConfigProvider, theme as antTheme } from 'ant-design-vue';</span>
 <span class="cstat-no" title="statement not covered" >import zhCN from 'ant-design-vue/es/locale/zh_CN';</span>
 <span class="cstat-no" title="statement not covered" >import { useThemeStore } from './stores/theme';</span>
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
 <span class="cstat-no" title="statement not covered" >const themeStore = useThemeStore();</span>
 <span class="cstat-no" title="statement not covered" >const themeConfig = computed(() =&gt; ({</span>
 <span class="cstat-no" title="statement not covered" >  algorithm: themeStore.isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,</span>
@@ -135,18 +135,18 @@
 <span class="cstat-no" title="statement not covered" >    fontFamily: "Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif"</span>
 <span class="cstat-no" title="statement not covered" >  }</span>
 <span class="cstat-no" title="statement not covered" >}));</span>
-<span class="cstat-no" title="statement not covered" ></span>
+&nbsp;
 <span class="cstat-no" title="statement not covered" >watchEffect(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  document.documentElement.dataset.theme = themeStore.isDark ? 'dark' : 'light';</span>
 <span class="cstat-no" title="statement not covered" >  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeStore.isDark ? '#151918' : '#f5f7f6');</span>
 <span class="cstat-no" title="statement not covered" >});</span>
-<span class="cstat-no" title="statement not covered" >&lt;/script&gt;</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >&lt;template&gt;</span>
+&lt;/script&gt;
+&nbsp;
+&lt;template&gt;
 <span class="cstat-no" title="statement not covered" >  &lt;ConfigProvider :locale="zhCN" :theme="themeConfig"&gt;</span>
 <span class="cstat-no" title="statement not covered" >    &lt;RouterView /&gt;</span>
 <span class="cstat-no" title="statement not covered" >  &lt;/ConfigProvider&gt;</span>
-<span class="cstat-no" title="statement not covered" >&lt;/template&gt;</span>
+&lt;/template&gt;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -154,7 +154,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-29T02:53:04.267Z
+                at 2026-07-31T03:54:51.232Z
             </div>
         <script src="../prettify.js"></script>
         <script>

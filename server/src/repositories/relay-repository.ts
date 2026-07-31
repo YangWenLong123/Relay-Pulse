@@ -57,8 +57,12 @@ export class RelayRepository {
   }
 
   async create(input: RelayInput): Promise<Relay> {
+    return (await this.createMany([input]))[0]!;
+  }
+
+  async createMany(inputs: RelayInput[]): Promise<Relay[]> {
     const now = new Date().toISOString();
-    const relay: Relay = {
+    const relays = inputs.map<Relay>((input) => ({
       ...input,
       id: randomUUID(),
       baseUrl: normalizeBaseUrl(input.baseUrl),
@@ -67,9 +71,9 @@ export class RelayRepository {
       lastTestAt: null,
       lastTestStatus: 'untested',
       lastLatency: null
-    };
-    await this.store.update((items) => [...items, this.toStoredRelay(relay)]);
-    return relay;
+    }));
+    await this.store.update((items) => [...items, ...relays.map((relay) => this.toStoredRelay(relay))]);
+    return relays;
   }
 
   async update(id: string, input: Partial<RelayInput>): Promise<Relay> {
@@ -140,6 +144,19 @@ export class RelayRepository {
       return items.map((item) => updatedMap.get(item.id) ?? item);
     });
     return updated.map((relay) => this.toPublicRelay(relay));
+  }
+
+  async reorder(ids: string[]): Promise<PublicRelay[]> {
+    let ordered: StoredRelay[] = [];
+    await this.store.update((items) => {
+      if (ids.length !== items.length) throw new HttpError(400, '排序列表必须包含全部中转站');
+      const byId = new Map(items.map((item) => [item.id, item]));
+      const missing = ids.find((id) => !byId.has(id));
+      if (missing) throw new HttpError(404, `中转站不存在：${missing}`);
+      ordered = ids.map((id) => byId.get(id)!);
+      return ordered;
+    });
+    return ordered.map((relay) => this.toPublicRelay(relay));
   }
 
   async applyTestResult(result: TestResult): Promise<void> {

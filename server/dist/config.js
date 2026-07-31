@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,8 @@ export const config = {
     allowExtensionOrigins: booleanFlag(process.env.ALLOW_EXTENSION_ORIGINS, true),
     dataDir: path.resolve(projectRoot, process.env.DATA_DIR ?? 'data'),
     historyLimit: positiveInteger(process.env.HISTORY_LIMIT, 1000),
+    poolUsageLimit: Math.min(100000, positiveInteger(process.env.POOL_USAGE_LIMIT, 10000)),
     batchConcurrency: Math.min(10, positiveInteger(process.env.BATCH_CONCURRENCY, 4)),
-    apiKeyEncryptionSecret: process.env.API_KEY_ENCRYPTION_SECRET?.trim() || undefined
+    apiKeyEncryptionSecret: process.env.API_KEY_ENCRYPTION_SECRET?.trim() || undefined,
+    ccSwitchDbPath: path.resolve(process.env.CC_SWITCH_DB_PATH?.trim() || path.join(os.homedir(), '.cc-switch', 'cc-switch.db'))
 };

@@ -206,6 +206,17 @@ export class ExtensionRelayService {
     return (await this.readState()).relays.map(publicRelay);
   }
 
+  async reorderRelays(relayIds: string[]): Promise<Relay[]> {
+    return this.mutate((state) => {
+      if (relayIds.length !== state.relays.length) throw new Error('排序列表必须包含全部中转站');
+      const byId = new Map(state.relays.map((relay) => [relay.id, relay]));
+      const missing = relayIds.find((relayId) => !byId.has(relayId));
+      if (missing) throw new Error('中转站不存在：' + missing);
+      state.relays = relayIds.map((relayId) => byId.get(relayId)!);
+      return state.relays.map(publicRelay);
+    });
+  }
+
   async createRelay(value: RelayFormValue): Promise<Relay> {
     return this.mutate((state) => {
       const now = new Date().toISOString();

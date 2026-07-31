@@ -4,7 +4,7 @@ import type { FormInstance } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import { ReloadOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { errorMessage } from '../api/http';
-import { getRelayBalanceCredentials } from '../api/relays';
+import { getRelayApiKey, getRelayBalanceCredentials } from '../api/relays';
 import { useRelayStore } from '../stores/relays';
 import type { BalanceConfigFormValue, Relay } from '../types';
 
@@ -48,15 +48,37 @@ watch(() => props.open, (open) => {
   }
   const config = props.relay.balanceConfig;
   Object.assign(form, {
-    template: config?.template ?? 'generic', requestUrl: config?.requestUrl ?? '', apiKey: '', accessToken: '',
+    template: config?.template ?? 'generic', requestUrl: config?.requestUrl ?? props.relay.baseUrl, apiKey: '', accessToken: '',
     userId: config?.userId ?? '', timeout: config?.timeout ?? 10000, intervalMinutes: config?.intervalMinutes ?? 1, enabled: config?.enabled ?? true
   });
   apiKeyConfigured.value = config?.apiKeyConfigured ?? false;
   accessTokenConfigured.value = config?.accessTokenConfigured ?? false;
   credentialsLoadError.value = '';
   if (config) void loadBalanceCredentials(props.relay);
+  else void loadDefaultApiKey(props.relay);
   formRef.value?.clearValidate();
 });
+
+async function loadDefaultApiKey(relay: Relay): Promise<void> {
+  cancelCredentialsLoad();
+  const currentController = new AbortController();
+  credentialsController = currentController;
+  credentialsLoading.value = true;
+  try {
+    const apiKey = await getRelayApiKey(relay.id, currentController.signal);
+    if (credentialsController === currentController) {
+      form.apiKey = apiKey;
+      apiKeyConfigured.value = Boolean(apiKey);
+    }
+  } catch (error) {
+    if (!currentController.signal.aborted && credentialsController === currentController) credentialsLoadError.value = errorMessage(error);
+  } finally {
+    if (credentialsController === currentController) {
+      credentialsController = undefined;
+      credentialsLoading.value = false;
+    }
+  }
+}
 
 async function loadBalanceCredentials(relay: Relay): Promise<void> {
   cancelCredentialsLoad();
@@ -91,6 +113,7 @@ async function save(): Promise<Relay | undefined> {
   saving.value = true;
   try {
     const balanceConfig = { ...form };
+    if (balanceConfig.template === 'newapi') delete balanceConfig.apiKey;
     if (!balanceConfig.apiKey?.trim()) delete balanceConfig.apiKey;
     if (!balanceConfig.accessToken?.trim()) delete balanceConfig.accessToken;
     const relay = await store.update(props.relay.id, { balanceConfig });

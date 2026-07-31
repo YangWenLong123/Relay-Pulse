@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import * as api from '../api/relays';
-import type { Relay, RelayFormValue, TestResult } from '../types';
+import type { CcSwitchImportResult, Relay, RelayFormValue, TestResult } from '../types';
 
 export const useRelayStore = defineStore('relays', () => {
   const relays = ref<Relay[]>([]);
@@ -55,6 +55,16 @@ export const useRelayStore = defineStore('relays', () => {
     const updated = await api.batchToggleRelays(ids, enabled);
     const map = new Map(updated.map((relay) => [relay.id, relay]));
     relays.value = relays.value.map((relay) => map.get(relay.id) ?? relay);
+  }
+
+  async function reorder(ids: string[]): Promise<void> {
+    relays.value = await api.reorderRelays(ids);
+  }
+
+  async function importCcSwitch(candidateIds: string[]): Promise<CcSwitchImportResult> {
+    const result = await api.importFromCcSwitch(candidateIds);
+    relays.value = [...relays.value, ...result.imported];
+    return result;
   }
 
   async function queryBalance(id: string): Promise<Relay> {
@@ -125,6 +135,8 @@ export const useRelayStore = defineStore('relays', () => {
     remove,
     duplicate,
     batchToggle,
+    reorder,
+    importCcSwitch,
     queryBalance,
     refreshDueBalances,
     startBalanceAutoRefresh,

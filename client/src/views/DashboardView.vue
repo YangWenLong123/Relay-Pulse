@@ -6,18 +6,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { TableColumnsType, TablePaginationConfig } from 'ant-design-vue';
+import type { FilterValue, SorterResult, TableCurrentDataSource } from 'ant-design-vue/es/table/interface';
 import { message, Modal } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 import {
+  ApiOutlined,
   CheckCircleOutlined,
   BgColorsOutlined,
   BulbOutlined,
   CloudOutlined,
   CopyOutlined,
+  HolderOutlined,
   DeleteOutlined,
   EditOutlined,
   EllipsisOutlined,
   ExperimentOutlined,
   HistoryOutlined,
+  ImportOutlined,
   DesktopOutlined,
   PlusOutlined,
   PoweroffOutlined,
@@ -25,6 +30,8 @@ import {
   WalletOutlined
 } from '@ant-design/icons-vue';
 import BalanceConfigDrawer from '../components/BalanceConfigDrawer.vue';
+import CcSwitchImportModal from '../components/CcSwitchImportModal.vue';
+import { getPoolStatus } from '../api/pool';
 import { errorMessage } from '../api/http';
 import BatchTestModal from '../components/BatchTestModal.vue';
 import HistoryDrawer from '../components/HistoryDrawer.vue';
@@ -33,10 +40,12 @@ import RelayFormDrawer from '../components/RelayFormDrawer.vue';
 import TestModal from '../components/TestModal.vue';
 import { useRelayStore } from '../stores/relays';
 import { useThemeStore } from '../stores/theme';
-import type { Relay, TestStatus, ThemeMode } from '../types';
+import type { PoolStatus, Relay, TestStatus, ThemeMode } from '../types';
+import { isStandaloneExtensionRuntime } from '../utils/runtime';
 
 const store = useRelayStore();
 const themeStore = useThemeStore();
+const router = useRouter();
 const search = ref('');
 const statusFilter = ref<TestStatus | 'all'>('all');
 const selectedRowKeys = ref<string[]>([]);
@@ -48,15 +57,27 @@ const batchOpen = ref(false);
 const balanceConfigOpen = ref(false);
 const balanceRelay = ref<Relay | null>(null);
 const historyOpen = ref(false);
+const ccSwitchImportOpen = ref(false);
+const poolStatus = ref<PoolStatus>();
 const historyRelayId = ref<string>();
 const loadError = ref<string>('');
 const pendingIds = ref<Set<string>>(new Set());
 const batchToggling = ref<boolean>(false);
 const removingFailed = ref<boolean>(false);
 const removingSelected = ref<boolean>(false);
+const reordering = ref(false);
+const draggingRelayId = ref<string>();
+const dragOverRelayId = ref<string>();
+const tableSortActive = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const themeTrigger = ref<HTMLElement>();
+const standaloneExtension = isStandaloneExtensionRuntime(
+  import.meta.env.VITE_BUILD_TARGET,
+  typeof window === 'undefined' ? '' : window.location.protocol,
+  import.meta.env.VITE_EXTENSION_DATA_MODE
+);
+const poolRunning = computed(() => poolStatus.value?.active === true);
 
 function createThemeTransitionFallback(x: number, y: number): HTMLElement {
   document.querySelector('.theme-transition-fallback')?.remove();
@@ -112,6 +133,7 @@ const tablePagination = computed<TablePaginationConfig>(() => ({
   pageSize: pageSize.value,
   total: filteredRelays.value.length
 }));
+const reorderEnabled = computed(() => !search.value.trim() && statusFilter.value === 'all' && !tableSortActive.value && !reordering.value);
 
 function onPageSizeChange(nextPageSize: number): void {
   pageSize.value = nextPageSize;
@@ -130,6 +152,13 @@ watch(
 );
 
 const columns: TableColumnsType<Relay> = [
+  {
+    title: '',
+    key: 'drag',
+    width: 42,
+    fixed: 'left',
+    className: 'relay-drag-column'
+  },
   {
     title: '中转站',
     dataIndex: 'name',
@@ -169,6 +198,7 @@ const columns: TableColumnsType<Relay> = [
 onMounted(() => {
   store.startBalanceAutoRefresh();
   void loadRelays();
+  if (!standaloneExtension) void loadPoolStatus();
 });
 onBeforeUnmount(() => store.stopBalanceAutoRefresh());
 
@@ -179,6 +209,14 @@ async function loadRelays(): Promise<void> {
   } catch (error) {
     loadError.value = errorMessage(error);
     message.error(loadError.value);
+  }
+}
+
+async function loadPoolStatus(): Promise<void> {
+  try {
+    poolStatus.value = await getPoolStatus();
+  } catch {
+    poolStatus.value = undefined;
   }
 }
 
@@ -345,6 +383,70 @@ function onSelectionChange(keys: (string | number)[]): void {
   selectedRowKeys.value = keys.map(String);
 }
 
+function onTableChange(
+  _pagination: TablePaginationConfig,
+  _filters: Record<string, FilterValue | null>,
+  sorter: SorterResult<Relay> | SorterResult<Relay>[],
+  _extra: TableCurrentDataSource<Relay>
+): void {
+  tableSortActive.value = Array.isArray(sorter) ? sorter.some((item) => Boolean(item.order)) : Boolean(sorter.order);
+}
+
+function customRow(record: Relay): Record<string, unknown> {
+  return {
+    draggable: reorderEnabled.value,
+    class: {
+      'relay-row-dragging': draggingRelayId.value === record.id,
+      'relay-row-drag-over': dragOverRelayId.value === record.id
+    },
+    onDragstart: (event: DragEvent) => startDrag(record, event),
+    onDragover: (event: DragEvent) => dragOver(record, event),
+    onDrop: (event: DragEvent) => dropOn(record, event),
+    onDragend: clearDrag
+  };
+}
+
+function startDrag(relay: Relay, event: DragEvent): void {
+  if (!reorderEnabled.value) return;
+  draggingRelayId.value = relay.id;
+  event.dataTransfer?.setData('text/plain', relay.id);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+}
+
+function dragOver(relay: Relay, event: DragEvent): void {
+  if (!draggingRelayId.value || draggingRelayId.value === relay.id || !reorderEnabled.value) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  dragOverRelayId.value = relay.id;
+}
+
+async function dropOn(relay: Relay, event: DragEvent): Promise<void> {
+  event.preventDefault();
+  const sourceId = draggingRelayId.value || event.dataTransfer?.getData('text/plain');
+  clearDrag();
+  if (!sourceId || sourceId === relay.id || !reorderEnabled.value || reordering.value) return;
+  const sourceIndex = store.relays.findIndex((item) => item.id === sourceId);
+  const targetIndex = store.relays.findIndex((item) => item.id === relay.id);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const ids = store.relays.map((item) => item.id);
+  ids.splice(sourceIndex, 1);
+  ids.splice(targetIndex, 0, sourceId);
+  reordering.value = true;
+  try {
+    await store.reorder(ids);
+    message.success('中转站顺序已更新');
+  } catch (error) {
+    message.error(errorMessage(error));
+  } finally {
+    reordering.value = false;
+  }
+}
+
+function clearDrag(): void {
+  draggingRelayId.value = undefined;
+  dragOverRelayId.value = undefined;
+}
+
 function onRelayToggle(relay: Relay, checked: boolean): void {
   void toggle(relay, checked);
 }
@@ -423,8 +525,13 @@ function dateTime(value: string | null): string {
           <h1>中转站管理</h1>
           <p>维护连接配置，快速确认密钥与模型可用性。</p>
         </div>
-        <a-space>
-          <a-button @click="openHistory()"><template #icon><HistoryOutlined /></template>测试历史</a-button>
+        <a-space wrap>
+          <a-button @click="ccSwitchImportOpen = true"><template #icon><ImportOutlined /></template>从 CC Switch 导入</a-button>
+          <a-button @click="router.push('/usage')">
+            <template #icon><ApiOutlined /></template>
+            <span class="relay-dot pool-center-dot" :class="poolRunning ? 'success' : 'failed'"></span>
+            号池中心
+          </a-button>
           <a-button type="primary" @click="openCreate"><template #icon><PlusOutlined /></template>添加中转站</a-button>
         </a-space>
       </div>
@@ -500,6 +607,8 @@ function dateTime(value: string | null): string {
             :columns="columns"
             :data-source="filteredRelays"
             :loading="store.loading"
+            @change="onTableChange"
+            :custom-row="customRow"
             :row-selection="{
               selectedRowKeys,
               onChange: onSelectionChange
@@ -509,7 +618,8 @@ function dateTime(value: string | null): string {
           >
             <template #emptyText><a-empty description="暂无中转站配置"><a-button type="primary" @click="openCreate">添加第一条配置</a-button></a-empty></template>
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'name'">
+              <template v-if="column.key === 'drag'"><HolderOutlined class="relay-drag-handle" :class="{ 'is-disabled': !reorderEnabled }" /></template>
+              <template v-else-if="column.key === 'name'">
                 <div class="relay-name"><span class="relay-dot" :class="record.lastTestStatus"></span><strong class="truncate">{{ record.name }}</strong></div>
               </template>
               <template v-else-if="column.key === 'baseUrl'">
@@ -595,5 +705,6 @@ function dateTime(value: string | null): string {
     <TestModal :open="testOpen" :relay="testingRelay" @close="testOpen = false" />
     <BatchTestModal :open="batchOpen" :relays="selectedRelays" @close="batchOpen = false" />
     <HistoryDrawer :open="historyOpen" :initial-relay-id="historyRelayId" @close="historyOpen = false" />
+    <CcSwitchImportModal :open="ccSwitchImportOpen" @close="ccSwitchImportOpen = false" />
   </div>
 </template>
