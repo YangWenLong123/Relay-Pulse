@@ -203,7 +203,8 @@ export class RelayTester {
                 headers: platform === 'anthropic'
                     ? { 'x-api-key': relay.apiKey, 'anthropic-version': '2023-06-01', Accept: 'application/json' }
                     : { Authorization: `Bearer ${relay.apiKey}`, Accept: 'application/json' },
-                signal: controller.signal
+                signal: controller.signal,
+                redirect: 'manual'
             });
             const body = await response.text();
             if (!response.ok)

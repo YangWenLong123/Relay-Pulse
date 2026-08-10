@@ -21,6 +21,9 @@ const DEFAULT_MAX_RESPONSE_BODY_BYTES = 64 * 1024 * 1024;
 const MAX_STREAM_USAGE_CAPTURE_BYTES = 1_000_000;
 const DEFAULT_COOLDOWN_MS = 30_000;
 const DEFAULT_BALANCE_REFRESH_TIMEOUT_MS = 3_000;
+const DEFAULT_POOL_FIRST_BYTE_TIMEOUT_MS = 180_000;
+const DEFAULT_POOL_STREAM_IDLE_TIMEOUT_MS = 180_000;
+const DEFAULT_POOL_RESPONSE_TIMEOUT_MS = 180_000;
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -62,6 +65,9 @@ export interface PoolProxyOptions {
   maxRequestBodyBytes?: number;
   maxResponseBodyBytes?: number;
   balanceRefreshTimeoutMs?: number;
+  firstByteTimeoutMs?: number;
+  streamIdleTimeoutMs?: number;
+  responseTimeoutMs?: number;
   random?: () => number;
 }
 
@@ -69,6 +75,7 @@ export interface PoolProxyStartOptions {
   port?: number;
   relayIds?: string[];
   routingStrategy?: PoolRoutingStrategy;
+  modelMap?: Record<string, string[]>;
 }
 
 interface PoolState {
@@ -96,16 +103,23 @@ interface RequestDetails {
 interface UpstreamAttempt {
   response: Response;
   firstByteMs: number;
-  clearTimeout: () => void;
-  armIdleTimeout: () => void;
+  clearStageTimeout: () => void;
+  armFirstByteTimeout: () => void;
+  armStreamIdleTimeout: () => void;
   failureFor: (error: unknown) => UpstreamFailure;
   dispose: () => void;
 }
 
+type UpstreamTimeoutKind = 'first_byte' | 'stream_idle' | 'response_total';
+
+type StreamForwardOutcome = 'complete' | 'client_interrupted' | 'upstream_failed';
+
 interface StreamForwardResult {
-  complete: boolean;
+  outcome: StreamForwardOutcome;
   body: Buffer;
   firstByteMs: number;
+  errorCode: string;
+  errorMessage: string;
 }
 
 interface UsageTokens {
@@ -261,6 +275,12 @@ function failureForError(error: unknown): UpstreamFailure {
     return new UpstreamFailure(null, 'upstream_timeout', '上游中转站请求超时或已取消');
   }
   return new UpstreamFailure(null, 'upstream_connection_error', '无法连接到上游中转站');
+}
+
+function timeoutFailure(kind: UpstreamTimeoutKind): UpstreamFailure {
+  if (kind === 'first_byte') return new UpstreamFailure(null, 'upstream_first_byte_timeout', '上游中转站首字响应超时');
+  if (kind === 'stream_idle') return new UpstreamFailure(null, 'upstream_stream_idle_timeout', '上游流式响应空闲超时');
+  return new UpstreamFailure(null, 'upstream_response_timeout', '上游中转站完整响应超时');
 }
 
 function responseError(
@@ -475,8 +495,14 @@ function mappedFailure(failure: UpstreamFailure): { status: number; message: str
   if (failure.statusCode === 429) {
     return { status: 429, message: '号池中的中转站当前均受到限流', type: 'rate_limit_error', code: 'pool_rate_limited' };
   }
-  if (failure.code === 'upstream_timeout') {
+  if (failure.code === 'upstream_timeout' || failure.code === 'upstream_first_byte_timeout') {
     return { status: 504, message: '所有可用中转站均未能及时响应', type: 'server_error', code: 'pool_upstream_timeout' };
+  }
+  if (failure.code === 'upstream_stream_idle_timeout') {
+    return { status: 504, message: '所有可用中转站流式响应均已超时', type: 'server_error', code: 'pool_stream_idle_timeout' };
+  }
+  if (failure.code === 'upstream_response_timeout') {
+    return { status: 504, message: '所有可用中转站均未能完整响应', type: 'server_error', code: 'pool_response_timeout' };
   }
   return { status: 502, message: '所有可用中转站均请求失败', type: 'server_error', code: 'pool_upstream_failure' };
 }
@@ -491,6 +517,9 @@ export class PoolProxyService {
   private readonly maxRequestBodyBytes: number;
   private readonly maxResponseBodyBytes: number;
   private readonly balanceRefreshTimeoutMs: number;
+  private readonly firstByteTimeoutMs: number;
+  private readonly streamIdleTimeoutMs: number;
+  private readonly responseTimeoutMs: number;
   private readonly now: () => Date;
   private readonly random: () => number;
   private readonly coolingUntilByRelay = new Map<string, number>();
@@ -508,6 +537,7 @@ export class PoolProxyService {
   private eligibleRelayCount = 0;
   private cooldownRelayCount = 0;
   private relayIds: string[] = [];
+  private readonly modelSubsetByRelay = new Map<string, Set<string>>();
   private platform: RelayPlatform | null = null;
   private routingStrategy: PoolRoutingStrategy = 'round-robin';
   private roundRobinCursor = 0;
@@ -527,6 +557,9 @@ export class PoolProxyService {
     this.maxRequestBodyBytes = options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES;
     this.maxResponseBodyBytes = options.maxResponseBodyBytes ?? DEFAULT_MAX_RESPONSE_BODY_BYTES;
     this.balanceRefreshTimeoutMs = options.balanceRefreshTimeoutMs ?? DEFAULT_BALANCE_REFRESH_TIMEOUT_MS;
+    this.firstByteTimeoutMs = options.firstByteTimeoutMs ?? DEFAULT_POOL_FIRST_BYTE_TIMEOUT_MS;
+    this.streamIdleTimeoutMs = options.streamIdleTimeoutMs ?? DEFAULT_POOL_STREAM_IDLE_TIMEOUT_MS;
+    this.responseTimeoutMs = options.responseTimeoutMs ?? DEFAULT_POOL_RESPONSE_TIMEOUT_MS;
     if (!Number.isFinite(this.cooldownMs) || this.cooldownMs < 0) throw new Error('cooldownMs 必须是非负有限数字');
     if (!Number.isSafeInteger(this.maxRequestBodyBytes) || this.maxRequestBodyBytes <= 0) {
       throw new Error('maxRequestBodyBytes 必须是正整数');
@@ -536,6 +569,15 @@ export class PoolProxyService {
     }
     if (!Number.isSafeInteger(this.balanceRefreshTimeoutMs) || this.balanceRefreshTimeoutMs <= 0) {
       throw new Error('balanceRefreshTimeoutMs 必须是正整数');
+    }
+    if (!Number.isSafeInteger(this.firstByteTimeoutMs) || this.firstByteTimeoutMs <= 0) {
+      throw new Error('firstByteTimeoutMs 必须是正整数');
+    }
+    if (!Number.isSafeInteger(this.streamIdleTimeoutMs) || this.streamIdleTimeoutMs <= 0) {
+      throw new Error('streamIdleTimeoutMs 必须是正整数');
+    }
+    if (!Number.isSafeInteger(this.responseTimeoutMs) || this.responseTimeoutMs <= 0) {
+      throw new Error('responseTimeoutMs 必须是正整数');
     }
   }
 
@@ -551,6 +593,7 @@ export class PoolProxyService {
       cooldownRelayCount: this.cooldownRelayCount,
       routingStrategy: this.routingStrategy,
       relayIds: [...this.relayIds],
+      modelMap: this.modelMapRecord(),
       platform: this.platform,
       apiKey: this.apiKey ?? '',
       balanceSummary: this.sessionBalanceSummary(balanceDetails),
@@ -566,6 +609,58 @@ export class PoolProxyService {
     settled.forEach((result) => {
       if (result.status === 'fulfilled') this.rememberRefreshedBalance(result.value);
     });
+    const state = await this.poolState();
+    this.updateStatusCounts(state);
+    return this.status();
+  }
+
+  async addRelays(
+    relayIds: string[],
+    modelMap: Record<string, string[]> = {},
+    signal?: AbortSignal
+  ): Promise<PoolStatus> {
+    if (!this.server) throw new Error('号池服务未启动');
+    if (!relayIds.length) throw new Error('请至少选择一个要添加的中转站');
+    if (new Set(relayIds).size !== relayIds.length) throw new Error('新增中转站不能重复');
+    if (this.relayIds.length + relayIds.length > 200) throw new Error('号池成员不能超过 200 个');
+
+    const existingIds = new Set(this.relayIds);
+    if (relayIds.some((relayId) => existingIds.has(relayId))) throw new Error('新增中转站已在号池中');
+    const modelEntries = this.normalizedModelEntries(modelMap, new Set(relayIds));
+    const lifecycleVersion = this.lifecycleVersion;
+    const relays = await this.dependencies.listRelays();
+    const additions = this.validateSelection(relays, relayIds);
+    if (additions.some((relay) => relay.platform !== this.platform)) {
+      throw new Error('新增中转站类型必须与当前号池一致');
+    }
+
+    const refreshable = additions.filter(hasRefreshableBalance);
+    const settled = await Promise.allSettled(
+      refreshable.map((relay) => this.dependencies.refreshBalance(relay, signal))
+    );
+    settled.forEach((result) => {
+      if (result.status === 'fulfilled') this.rememberRefreshedBalance(result.value);
+    });
+    if (signal?.aborted) throw new Error('添加中转站已取消');
+    if (!this.server || lifecycleVersion !== this.lifecycleVersion) throw new Error('号池服务未启动');
+
+    const currentIds = new Set(this.relayIds);
+    if (relayIds.some((relayId) => currentIds.has(relayId))) throw new Error('新增中转站已在号池中');
+    if (this.relayIds.length + relayIds.length > 200) throw new Error('号池成员不能超过 200 个');
+    const latestRelays = await this.dependencies.listRelays();
+    const latestAdditions = this.validateSelection(latestRelays, relayIds);
+    if (latestAdditions.some((relay) => relay.platform !== this.platform)) {
+      throw new Error('新增中转站类型必须与当前号池一致');
+    }
+    if (!this.server || lifecycleVersion !== this.lifecycleVersion) throw new Error('号池服务未启动');
+    const latestMemberIds = new Set(this.relayIds);
+    if (relayIds.some((relayId) => latestMemberIds.has(relayId))) throw new Error('新增中转站已在号池中');
+    if (this.relayIds.length + relayIds.length > 200) throw new Error('号池成员不能超过 200 个');
+
+    this.relayIds = [...this.relayIds, ...relayIds];
+    modelEntries.forEach((models, relayId) => this.modelSubsetByRelay.set(relayId, models));
+    latestAdditions.forEach((relay) => this.captureSessionBalance(this.withRefreshedBalance(relay)));
+    this.roundRobinCursor = 0;
     const state = await this.poolState();
     this.updateStatusCounts(state);
     return this.status();
@@ -590,6 +685,7 @@ export class PoolProxyService {
       const relays = await this.dependencies.listRelays();
       const selected = this.validateSelection(relays, options.relayIds ?? relays.map((relay) => relay.id));
       this.relayIds = selected.map((relay) => relay.id);
+      this.setModelMap(options.modelMap ?? {});
       this.platform = selected[0]!.platform;
       this.routingStrategy = options.routingStrategy ?? 'round-robin';
       this.roundRobinCursor = 0;
@@ -637,6 +733,7 @@ export class PoolProxyService {
     this.port = null;
     this.eligibleRelayCount = 0;
     this.cooldownRelayCount = 0;
+    this.modelSubsetByRelay.clear();
     this.coolingUntilByRelay.clear();
     this.refreshedBalancesByRelay.clear();
     this.sessionBalancesByRelay.clear();
@@ -795,7 +892,17 @@ export class PoolProxyService {
         return;
       }
 
-      for (const relay of this.orderCandidates(state.candidates)) {
+      const requestModel = details?.model ?? '';
+      const modelCandidates = requestModel
+        ? state.candidates.filter((relay) => this.relaySupportsModel(relay.id, requestModel))
+        : state.candidates;
+      if (requestModel && !modelCandidates.length) {
+        await this.recordPoolFailure(details, requestId, startedAt, 0, undefined, 'model_not_found', '', 404);
+        responseError(res, 404, '号池中没有支持该模型的中转站', 'invalid_request_error', 'model_not_found');
+        return;
+      }
+
+      for (const relay of this.orderCandidates(modelCandidates)) {
         if (controller.signal.aborted) return;
         attempts += 1;
         lastRelay = relay;
@@ -814,21 +921,22 @@ export class PoolProxyService {
               requestId,
               details,
               relay,
-              status: result.complete ? 'success' : 'failed',
+              // A broken downstream connection must not turn an accepted upstream call into a failed relay call.
+              status: result.outcome === 'upstream_failed' ? 'failed' : 'success',
               statusCode: upstream.response.status,
               attempts,
               startedAt,
               firstByteMs: result.firstByteMs,
               body: result.body,
-              errorCode: result.complete ? '' : 'stream_interrupted',
-              errorMessage: result.complete ? '' : '上游流式响应在开始后中断'
+              errorCode: result.errorCode,
+              errorMessage: result.errorMessage
             });
             if (hasRefreshableBalance(relay)) void this.scheduleBalanceRefresh(relay);
             return;
           }
 
           const body = await readResponseBody(upstream.response, this.maxResponseBodyBytes);
-          upstream.clearTimeout();
+          upstream.clearStageTimeout();
           this.sendBufferedResponse(res, upstream.response, body);
           await this.recordUsage({
             requestId,
@@ -933,6 +1041,10 @@ export class PoolProxyService {
     startedAt: number,
     requestSignal: AbortSignal
   ): Promise<ModelListAttempt> {
+    const subset = this.modelSubsetByRelay.get(relay.id);
+    if (subset?.size) {
+      return { ok: true, relay, entries: [...subset].map((id) => ({ id, object: 'model' })) };
+    }
     let upstream: UpstreamAttempt | undefined;
     try {
       upstream = await this.openUpstream(req, '/v1/models', undefined, relay, startedAt, requestSignal);
@@ -941,7 +1053,7 @@ export class PoolProxyService {
         throw failureForResponse(upstream.response, raw, relay, this.apiKey);
       }
       const body = await readResponseBody(upstream.response, this.maxResponseBodyBytes);
-      upstream.clearTimeout();
+      upstream.clearStageTimeout();
       return { ok: true, relay, entries: modelEntriesFromResponseBody(body) };
     } catch (error) {
       return { ok: false, relay, failure: upstream?.failureFor(error) ?? failureForError(error) };
@@ -962,22 +1074,37 @@ export class PoolProxyService {
     const controller = new AbortController();
     const abort = (): void => controller.abort();
     requestSignal.addEventListener('abort', abort, { once: true });
-    let timedOut = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const armTimeout = (): void => {
-      if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, Math.max(1, relay.timeout));
+    let timeoutKind: UpstreamTimeoutKind | null = null;
+    let stageTimeout: ReturnType<typeof setTimeout> | undefined;
+    let responseTimeout: ReturnType<typeof setTimeout> | undefined;
+    const abortForTimeout = (kind: UpstreamTimeoutKind): void => {
+      timeoutKind ??= kind;
+      controller.abort();
     };
-    const clearRequestTimeout = (): void => {
-      if (timeout) clearTimeout(timeout);
-      timeout = undefined;
+    const clearStageTimeout = (): void => {
+      if (stageTimeout) clearTimeout(stageTimeout);
+      stageTimeout = undefined;
     };
-    armTimeout();
+    const armStageTimeout = (kind: UpstreamTimeoutKind, durationMs: number): void => {
+      clearStageTimeout();
+      stageTimeout = setTimeout(() => abortForTimeout(kind), durationMs);
+      stageTimeout.unref();
+    };
+    const armFirstByteTimeout = (): void => armStageTimeout('first_byte', this.firstByteTimeoutMs);
+    const armStreamIdleTimeout = (): void => armStageTimeout('stream_idle', this.streamIdleTimeoutMs);
+    const clearResponseTimeout = (): void => {
+      if (responseTimeout) clearTimeout(responseTimeout);
+      responseTimeout = undefined;
+    };
+    const clearTimeouts = (): void => {
+      clearStageTimeout();
+      clearResponseTimeout();
+    };
+    armFirstByteTimeout();
+    responseTimeout = setTimeout(() => abortForTimeout('response_total'), this.responseTimeoutMs);
+    responseTimeout.unref();
     const classifyFailure = (error: unknown): UpstreamFailure => {
-      if (timedOut) return new UpstreamFailure(null, 'upstream_timeout', '上游中转站请求超时');
+      if (timeoutKind) return timeoutFailure(timeoutKind);
       if (requestSignal.aborted) return new UpstreamFailure(null, 'request_cancelled', '请求已取消');
       return failureForError(error);
     };
@@ -989,19 +1116,21 @@ export class PoolProxyService {
         redirect: 'manual',
         signal: controller.signal
       });
+      clearStageTimeout();
       return {
         response,
         firstByteMs: Math.round(nowMs() - startedAt),
-        clearTimeout: clearRequestTimeout,
-        armIdleTimeout: armTimeout,
+        clearStageTimeout,
+        armFirstByteTimeout,
+        armStreamIdleTimeout,
         failureFor: classifyFailure,
         dispose: () => {
           requestSignal.removeEventListener('abort', abort);
-          clearRequestTimeout();
+          clearTimeouts();
         }
       };
     } catch (error) {
-      clearRequestTimeout();
+      clearTimeouts();
       requestSignal.removeEventListener('abort', abort);
       if (controller.signal.aborted) {
         throw classifyFailure(error);
@@ -1073,12 +1202,13 @@ export class PoolProxyService {
     try {
       let firstChunk: Buffer | undefined;
       while (!firstChunk) {
+        upstream.armFirstByteTimeout();
         const next = await reader.read();
+        upstream.clearStageTimeout();
         if (next.done) throw new UpstreamFailure(null, 'upstream_empty_stream', '上游流式响应未返回内容');
         const chunk = Buffer.from(next.value);
         if (chunk.length) firstChunk = chunk;
       }
-      upstream.clearTimeout();
       firstByteMs = Math.round(nowMs() - startedAt);
       capture(firstChunk);
       if (res.writableEnded || res.destroyed) {
@@ -1091,29 +1221,48 @@ export class PoolProxyService {
       committed = true;
       if (!(await this.writeStreamChunk(res, firstChunk))) {
         await reader.cancel();
-        return { complete: false, body: Buffer.concat(chunks), firstByteMs };
+        return {
+          outcome: 'client_interrupted',
+          body: Buffer.concat(chunks),
+          firstByteMs,
+          errorCode: 'stream_interrupted',
+          errorMessage: '客户端连接在流式响应开始后中断'
+        };
       }
 
       for (;;) {
-        upstream.armIdleTimeout();
+        upstream.armStreamIdleTimeout();
         const next = await reader.read();
-        upstream.clearTimeout();
+        upstream.clearStageTimeout();
         if (next.done) break;
         const chunk = Buffer.from(next.value);
         if (!chunk.length) continue;
         capture(chunk);
         if (res.writableEnded || res.destroyed || !(await this.writeStreamChunk(res, chunk))) {
           await reader.cancel();
-          return { complete: false, body: Buffer.concat(chunks), firstByteMs };
+          return {
+            outcome: 'client_interrupted',
+            body: Buffer.concat(chunks),
+            firstByteMs,
+            errorCode: 'stream_interrupted',
+            errorMessage: '客户端连接在流式响应开始后中断'
+          };
         }
       }
       res.end();
-      return { complete: true, body: Buffer.concat(chunks), firstByteMs };
+      return { outcome: 'complete', body: Buffer.concat(chunks), firstByteMs, errorCode: '', errorMessage: '' };
     } catch (error) {
-      upstream.clearTimeout();
-      if (!committed) throw error;
+      upstream.clearStageTimeout();
+      const failure = upstream.failureFor(error);
+      if (!committed) throw failure;
       if (!res.destroyed && !res.writableEnded) res.destroy();
-      return { complete: false, body: Buffer.concat(chunks), firstByteMs };
+      return {
+        outcome: failure.code === 'request_cancelled' ? 'client_interrupted' : 'upstream_failed',
+        body: Buffer.concat(chunks),
+        firstByteMs,
+        errorCode: failure.code,
+        errorMessage: failure.message
+      };
     }
   }
 
@@ -1173,6 +1322,37 @@ export class PoolProxyService {
     const platforms = new Set(resolved.map((relay) => relay.platform));
     if (platforms.size !== 1) throw new Error('号池中的中转站类型必须一致，不能混用 OpenAI 和 Anthropic');
     return resolved;
+  }
+
+  private setModelMap(modelMap: Record<string, string[]>): void {
+    this.modelSubsetByRelay.clear();
+    this.normalizedModelEntries(modelMap, new Set(this.relayIds))
+      .forEach((models, relayId) => this.modelSubsetByRelay.set(relayId, models));
+  }
+
+  private normalizedModelEntries(
+    modelMap: Record<string, string[]>,
+    allowedRelayIds: Set<string>
+  ): Map<string, Set<string>> {
+    const entries = new Map<string, Set<string>>();
+    for (const [relayId, models] of Object.entries(modelMap)) {
+      if (!allowedRelayIds.has(relayId)) throw new Error('模型映射只能包含本次添加的中转站');
+      const subset = new Set(models.map((model) => model.trim()).filter(Boolean));
+      if (subset.size) entries.set(relayId, subset);
+    }
+    return entries;
+  }
+
+  private modelMapRecord(): Record<string, string[]> {
+    const record: Record<string, string[]> = {};
+    for (const [relayId, subset] of this.modelSubsetByRelay) record[relayId] = [...subset];
+    return record;
+  }
+
+  private relaySupportsModel(relayId: string, model: string): boolean {
+    const subset = this.modelSubsetByRelay.get(relayId);
+    if (!subset || !subset.size) return true;
+    return subset.has(model.trim());
   }
 
   private rotateCandidates(candidates: Relay[]): Relay[] {
@@ -1281,18 +1461,20 @@ export class PoolProxyService {
 
   private captureSessionBalances(relays: Relay[]): void {
     this.sessionBalancesByRelay.clear();
-    relays.forEach((relay) => {
-      const balance = relay.balance;
-      const remaining = balance?.success && balance.remaining !== null && Number.isFinite(balance.remaining)
-        ? balance.remaining
-        : null;
-      this.sessionBalancesByRelay.set(relay.id, {
-        relayId: relay.id,
-        relayName: relay.name,
-        unit: balance?.unit.trim() ?? '',
-        initialBalance: remaining,
-        currentBalance: remaining
-      });
+    relays.forEach((relay) => this.captureSessionBalance(relay));
+  }
+
+  private captureSessionBalance(relay: Relay): void {
+    const balance = relay.balance;
+    const remaining = balance?.success && balance.remaining !== null && Number.isFinite(balance.remaining)
+      ? balance.remaining
+      : null;
+    this.sessionBalancesByRelay.set(relay.id, {
+      relayId: relay.id,
+      relayName: relay.name,
+      unit: balance?.unit.trim() ?? '',
+      initialBalance: remaining,
+      currentBalance: remaining
     });
   }
 

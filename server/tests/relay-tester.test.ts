@@ -127,6 +127,20 @@ describe('RelayTester', () => {
     await expect(new RelayTester().discoverModels(relay)).rejects.not.toThrow(relay.apiKey);
   });
 
+  it('refuses redirects while discovering models so credentials stay on the configured origin', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, {
+      status: 302,
+      headers: { Location: 'https://other.example.com/v1/models' }
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(new RelayTester().discoverModels(relay)).rejects.toThrow('HTTP 302');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.com/v1/models',
+      expect.objectContaining({ redirect: 'manual' })
+    );
+  });
+
   it('uses the Anthropic Messages API and authentication headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ content: [{ type: 'text', text: 'hello from Claude' }] }), { status: 200 })

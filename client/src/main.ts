@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import {
+  Alert,
   AutoComplete,
   Badge,
   Button,
@@ -46,6 +47,7 @@ window.addEventListener(
 
 const app = createApp(App).use(createPinia()).use(router);
 [
+  Alert,
   AutoComplete,
   Badge,
   Button,

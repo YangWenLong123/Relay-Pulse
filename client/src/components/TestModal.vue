@@ -43,8 +43,8 @@ watch(
   }
 );
 
-function abbreviatedApiKey(maskedKey: string): string {
-  return maskedKey.replace(/\*+/, '...');
+function abbreviatedApiKey(maskedKey?: string): string {
+  return (maskedKey ?? '').replace(/\*+/, '...');
 }
 
 const stateLabel = computed(() => ({

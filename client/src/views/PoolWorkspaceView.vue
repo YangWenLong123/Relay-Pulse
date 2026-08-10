@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
+import { storeToRefs } from 'pinia';
 import {
-  ArrowLeftOutlined,
   CopyOutlined,
   ExportOutlined,
   KeyOutlined,
+  PlusOutlined,
   PlayCircleOutlined,
   PoweroffOutlined,
   ReloadOutlined
 } from '@ant-design/icons-vue';
-import { useRouter } from 'vue-router';
 import PoolUsageDashboard, {
   type PoolUsageAnalytics,
   type PoolUsageFilters as DashboardFilters,
@@ -20,6 +20,7 @@ import PoolUsageDashboard, {
   type PoolUsageSummary as DashboardSummary
 } from '../components/PoolUsageDashboard.vue';
 import {
+  addPoolRelays,
   getPoolStatus,
   listPoolUsage,
   poolUsageExportUrl,
@@ -28,21 +29,35 @@ import {
   stopPool,
   updatePoolRoutingStrategy
 } from '../api/pool';
+import { discoverRelayModels } from '../api/relays';
 import { errorMessage } from '../api/http';
+import { usePoolStatusStore } from '../stores/pool-status';
 import { useRelayStore } from '../stores/relays';
-import type { PoolEndpoint, PoolRoutingStrategy, PoolStatus, PoolUsageQuery, PoolUsageReport, PoolUsageStatus, Relay } from '../types';
+import type { PoolEndpoint, PoolRoutingStrategy, PoolUsageQuery, PoolUsageReport, PoolUsageStatus, Relay } from '../types';
 import { buildCcSwitchPoolDeeplink } from '../utils/cc-switch';
+import {
+  DEFAULT_POOL_USAGE_PAGE_SIZE,
+  PAGINATION_PAGE_SIZE_OPTIONS,
+  POOL_USAGE_PAGE_SIZE_STORAGE_KEY,
+  isPaginationPageSize,
+  readPageSize,
+  writePageSize
+} from '../utils/pagination';
 
-const router = useRouter();
 const relayStore = useRelayStore();
+const poolStatusStore = usePoolStatusStore();
+const { status: poolStatus } = storeToRefs(poolStatusStore);
 
-const poolStatus = ref<PoolStatus>();
 const selectedRelayIds = ref<string[]>([]);
+const pendingRelayIds = ref<string[]>([]);
 const requestedPort = ref(0);
 const routingStrategy = ref<PoolRoutingStrategy>('round-robin');
+const modelMap = ref<Record<string, string[]>>({});
+const modelOptionsByRelay = ref<Record<string, string[]>>({});
+const discoveringModelRelayIds = ref<Set<string>>(new Set());
 const poolLoading = ref(false);
 const poolError = ref('');
-const poolAction = ref<'start' | 'stop' | 'rotate' | 'strategy'>();
+const poolAction = ref<'start' | 'stop' | 'rotate' | 'strategy' | 'members'>();
 const balanceDetailsOpen = ref(false);
 let poolController: AbortController | undefined;
 let poolStatusTimer: ReturnType<typeof setInterval> | undefined;
@@ -51,12 +66,20 @@ const report = ref<PoolUsageReport>();
 const usageLoading = ref(false);
 const usageError = ref('');
 const filters = ref<DashboardFilters>({ timeRange: '24h', granularity: 'hour', status: 'all' });
-const pagination = ref<DashboardPagination>({ current: 1, pageSize: 20, total: 0 });
+const pagination = ref<DashboardPagination>({
+  current: 1,
+  pageSize: readPageSize(POOL_USAGE_PAGE_SIZE_STORAGE_KEY, DEFAULT_POOL_USAGE_PAGE_SIZE),
+  total: 0
+});
 let usageController: AbortController | undefined;
 let usageRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 const running = computed(() => poolStatus.value?.active === true);
 const enabledRelays = computed(() => relayStore.relays.filter((relay) => relay.enabled));
+const availableRelays = computed(() => {
+  const selectedIds = new Set(selectedRelayIds.value);
+  return enabledRelays.value.filter((relay) => !selectedIds.has(relay.id));
+});
 const selectedRelays = computed(() => {
   const byId = new Map(relayStore.relays.map((relay) => [relay.id, relay]));
   return selectedRelayIds.value.map((id) => byId.get(id)).filter((relay): relay is Relay => Boolean(relay));
@@ -64,6 +87,11 @@ const selectedRelays = computed(() => {
 const selectedPlatform = computed(() => selectedRelays.value[0]?.platform ?? null);
 const mixedPlatform = computed(() => new Set(selectedRelays.value.map((relay) => relay.platform)).size > 1);
 const canStart = computed(() => selectedRelayIds.value.length > 0 && selectedRelays.value.length === selectedRelayIds.value.length && !mixedPlatform.value);
+const canAddRelays = computed(() => {
+  if (!running.value || !pendingRelayIds.value.length || selectedRelayIds.value.length + pendingRelayIds.value.length > 200) return false;
+  const byId = new Map(availableRelays.value.map((relay) => [relay.id, relay]));
+  return pendingRelayIds.value.every((id) => byId.get(id)?.platform === poolStatus.value?.platform);
+});
 const statusPlatform = computed(() => poolStatus.value?.platform ?? selectedPlatform.value);
 const serviceBaseUrl = computed(() => {
   const baseUrl = poolStatus.value?.baseUrl ?? '';
@@ -155,6 +183,10 @@ function relayOptionDisabled(relay: Relay): boolean {
   return running.value || Boolean(selectedPlatform.value && relay.platform !== selectedPlatform.value);
 }
 
+function addRelayOptionDisabled(relay: Relay): boolean {
+  return relay.platform !== poolStatus.value?.platform;
+}
+
 function relayOptionLabel(relay: Relay): string {
   return `${relay.name} · ${relay.platform === 'anthropic' ? 'Anthropic' : 'OpenAI'}`;
 }
@@ -167,6 +199,33 @@ function relayBalanceLabel(relay: Relay): string {
   }
   if (balance && !balance.success) return '查询失败';
   return relay.balanceConfig?.enabled ? '尚未查询' : '未配置';
+}
+
+function modelOptionsForRelay(relay: Relay): string[] {
+  const discovered = modelOptionsByRelay.value[relay.id] ?? [];
+  const selected = modelMap.value[relay.id] ?? [];
+  const base = relay.model ? [relay.model] : [];
+  return [...new Set([...selected, ...discovered, ...base])];
+}
+
+function updateRelayModelSubset(relayId: string, models: string[]): void {
+  modelMap.value = { ...modelMap.value, [relayId]: models };
+}
+
+async function discoverModelsForRelay(relayId: string): Promise<void> {
+  if (running.value || discoveringModelRelayIds.value.has(relayId)) return;
+  discoveringModelRelayIds.value = new Set(discoveringModelRelayIds.value).add(relayId);
+  try {
+    const models = await discoverRelayModels(relayId);
+    modelOptionsByRelay.value = { ...modelOptionsByRelay.value, [relayId]: models };
+    if (!models.length) message.info('该中转站未返回可用模型');
+  } catch (error) {
+    message.error(errorMessage(error));
+  } finally {
+    const next = new Set(discoveringModelRelayIds.value);
+    next.delete(relayId);
+    discoveringModelRelayIds.value = next;
+  }
 }
 
 function formatBalanceValue(value: number | null, unit: string): string {
@@ -194,7 +253,10 @@ async function loadPoolStatus(syncSelection = true, silent = false): Promise<voi
     if (poolController !== controller) return;
     poolStatus.value = status;
     routingStrategy.value = status.routingStrategy ?? 'round-robin';
-    if (syncSelection) selectedRelayIds.value = [...status.relayIds];
+    if (syncSelection) {
+      selectedRelayIds.value = [...status.relayIds];
+      if (status.active) modelMap.value = { ...modelMap.value, ...status.modelMap };
+    }
   } catch (error) {
     if (!silent && !controller.signal.aborted) poolError.value = errorMessage(error);
   } finally {
@@ -210,7 +272,13 @@ async function startService(): Promise<void> {
   poolAction.value = 'start';
   poolError.value = '';
   try {
-    poolStatus.value = await startPool(requestedPort.value || 0, selectedRelayIds.value, routingStrategy.value);
+    const payload: Record<string, string[]> = {};
+    for (const relayId of selectedRelayIds.value) {
+      const models = (modelMap.value[relayId] ?? []).map((model) => model.trim()).filter(Boolean);
+      if (models.length) payload[relayId] = [...new Set(models)];
+    }
+    poolStatus.value = await startPool(requestedPort.value || 0, selectedRelayIds.value, routingStrategy.value, payload);
+    modelMap.value = { ...modelMap.value, ...poolStatus.value.modelMap };
     void loadUsage(1);
     message.success('号池服务已启动');
   } catch (error) {
@@ -236,6 +304,26 @@ async function changeRoutingStrategy(value: string | number): Promise<void> {
     message.success('轮询规则已更新');
   } catch (error) {
     poolError.value = errorMessage(error);
+  } finally {
+    poolAction.value = undefined;
+  }
+}
+
+async function addServiceRelays(): Promise<void> {
+  if (poolAction.value || !canAddRelays.value) return;
+  poolAction.value = 'members';
+  poolError.value = '';
+  try {
+    const status = await addPoolRelays(pendingRelayIds.value);
+    poolStatus.value = status;
+    selectedRelayIds.value = [...status.relayIds];
+    modelMap.value = { ...status.modelMap };
+    pendingRelayIds.value = [];
+    void relayStore.fetchRelays();
+    message.success('中转站已加入号池');
+  } catch (error) {
+    poolError.value = errorMessage(error);
+    message.error(poolError.value);
   } finally {
     poolAction.value = undefined;
   }
@@ -364,7 +452,9 @@ function updateFilters(next: DashboardFilters): void {
 }
 
 function updatePagination(next: DashboardPagination): void {
-  pagination.value = { ...next, total: report.value?.total ?? next.total };
+  const nextPageSize = isPaginationPageSize(next.pageSize) ? next.pageSize : pagination.value.pageSize;
+  pagination.value = { ...next, pageSize: nextPageSize, total: report.value?.total ?? next.total };
+  writePageSize(POOL_USAGE_PAGE_SIZE_STORAGE_KEY, nextPageSize);
   void loadUsage(next.current);
 }
 
@@ -407,17 +497,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="topbar">
-      <div class="topbar-inner">
-        <button class="brand pool-brand" type="button" aria-label="返回中转站管理" @click="router.push('/')">
-          <div class="brand-mark">RP</div>
-          <div class="brand-copy"><strong>Relay Pulse</strong><span>本机号池与使用记录</span></div>
-        </button>
-        <a-button @click="router.push('/')"><template #icon><ArrowLeftOutlined /></template>中转站管理</a-button>
-      </div>
-    </header>
-
+  <div class="page-view">
     <main class="page-content pool-page-content">
       <section class="pool-service-panel" aria-label="号池服务配置">
         <div class="pool-service-heading">
@@ -498,6 +578,70 @@ onBeforeUnmount(() => {
             </label>
           </div>
 
+          <div v-if="running" class="pool-add-members">
+            <label for="pool-add-relays">加入中转站</label>
+            <a-select
+              id="pool-add-relays"
+              v-model:value="pendingRelayIds"
+              mode="multiple"
+              :disabled="!!poolAction || !availableRelays.length"
+              :max-tag-count="3"
+              placeholder="选择要加入的中转站"
+            >
+              <a-select-option
+                v-for="relay in availableRelays"
+                :key="relay.id"
+                :value="relay.id"
+                :label="relayOptionLabel(relay)"
+                :disabled="addRelayOptionDisabled(relay)"
+              >
+                <div class="pool-relay-option">
+                  <span class="pool-relay-option-name">{{ relayOptionLabel(relay) }}</span>
+                  <span class="pool-relay-option-balance">余额 {{ relayBalanceLabel(relay) }}</span>
+                </div>
+              </a-select-option>
+            </a-select>
+            <a-button
+              type="primary"
+              :loading="poolAction === 'members'"
+              :disabled="!!poolAction || !canAddRelays"
+              @click="addServiceRelays"
+            >
+              <template #icon><PlusOutlined /></template>加入号池
+            </a-button>
+          </div>
+
+          <div v-if="selectedRelays.length" class="pool-model-map">
+            <div class="pool-model-map-head">
+              <span>模型映射</span>
+              <small>为每个中转指定可用模型子集；留空表示接受全部模型。客户端请求某模型时，只会命中包含该模型的中转。</small>
+            </div>
+            <div class="pool-model-map-list">
+              <div v-for="relay in selectedRelays" :key="relay.id" class="pool-model-map-row">
+                <div class="pool-model-map-relay">
+                  <span class="pool-model-map-name">{{ relay.name }}</span>
+                  <span class="pool-model-map-hint">{{ (modelMap[relay.id] ?? []).length ? `${(modelMap[relay.id] ?? []).length} 个模型` : '全部模型' }}</span>
+                </div>
+                <a-select
+                  :value="modelMap[relay.id] ?? []"
+                  mode="tags"
+                  class="pool-model-map-select"
+                  :disabled="running || !!poolAction"
+                  :max-tag-count="4"
+                  placeholder="留空接受全部模型"
+                  @update:value="(value: string[]) => updateRelayModelSubset(relay.id, value)"
+                >
+                  <a-select-option v-for="model in modelOptionsForRelay(relay)" :key="model" :value="model">{{ model }}</a-select-option>
+                </a-select>
+                <a-button
+                  :loading="discoveringModelRelayIds.has(relay.id)"
+                  :disabled="running || !!poolAction"
+                  @click="discoverModelsForRelay(relay.id)"
+                >探测模型</a-button>
+              </div>
+            </div>
+          </div>
+
           <div v-if="running" class="pool-credentials">
             <label>
               <span>Base URL</span>
@@ -537,6 +681,7 @@ onBeforeUnmount(() => {
           :analytics="analytics"
           :filters="filters"
           :pagination="pagination"
+          :page-size-options="PAGINATION_PAGE_SIZE_OPTIONS"
           :loading="usageLoading"
           :error="usageError"
           :model-options="modelOptions"
@@ -575,7 +720,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.pool-brand { padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .pool-page-content { padding-bottom: 32px; }
 .pool-service-panel { padding-bottom: 24px; border-bottom: 1px solid var(--border); }
 .pool-service-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
@@ -612,7 +756,20 @@ onBeforeUnmount(() => {
 .pool-relay-option-balance { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pool-members-field > span, .pool-port-field small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 16px; }
 .pool-port-field { display: block; }
+.pool-add-members { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; margin-top: 16px; }
+.pool-add-members > label { grid-column: 1 / -1; margin-bottom: -5px; color: var(--muted); font-size: 12px; }
+.pool-add-members :deep(.ant-select) { min-width: 0; width: 100%; }
 .pool-credentials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.pool-model-map { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-subtle); }
+.pool-model-map-head { margin-bottom: 12px; }
+.pool-model-map-head > span { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; }
+.pool-model-map-head > small { display: block; color: var(--muted); font-size: 11px; line-height: 16px; }
+.pool-model-map-list { display: flex; flex-direction: column; gap: 10px; }
+.pool-model-map-row { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.pool-model-map-relay { min-width: 0; }
+.pool-model-map-name { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.pool-model-map-hint { display: block; color: var(--muted); font-size: 11px; }
+.pool-model-map-select { width: 100%; }
 .pool-service-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .pool-usage-section { padding-top: 24px; }
 
@@ -634,5 +791,9 @@ onBeforeUnmount(() => {
   .pool-status-band > div, .pool-status-band > div:nth-child(even) { grid-column: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .pool-service-actions :deep(.ant-btn) { flex: 1 1 145px; }
   .pool-port-field { grid-column: auto; }
+  .pool-model-map-row { grid-template-columns: 1fr; }
+  .pool-add-members { grid-template-columns: 1fr; }
+  .pool-add-members > label { grid-column: auto; }
+  .pool-add-members :deep(.ant-btn) { width: 100%; }
 }
 </style>

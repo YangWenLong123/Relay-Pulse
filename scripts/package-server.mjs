@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,12 @@ const targetName = `relay-pulse-${target}`;
 const outputDir = path.join(projectRoot, 'release', targetName);
 const executableName = targetPlatform === 'win32' ? 'relay-pulse-start.exe' : 'relay-pulse-start';
 const executablePath = path.join(outputDir, executableName);
+const localDataFiles = new Set([
+  'relays.json',
+  'test-history.json',
+  'codex-accounts.json',
+  'codex-usage.json'
+]);
 const temporaryDir = await mkdtemp(path.join(os.tmpdir(), 'relay-pulse-sea-'));
 const bundlePath = path.join(temporaryDir, 'server.cjs');
 const seaConfigPath = path.join(temporaryDir, 'sea-config.json');
@@ -79,6 +85,23 @@ async function stripWindowsSignature(filePath) {
   const certificateEndsAtEof = certificateOffset > 0
     && certificateOffset + certificateSize === executable.length;
   await writeFile(filePath, certificateEndsAtEof ? executable.subarray(0, certificateOffset) : executable);
+}
+
+async function assertDataFreePackage() {
+  const entries = await readdir(outputDir, { withFileTypes: true });
+  const unexpectedEntries = entries
+    .filter((entry) => entry.name !== executableName)
+    .map((entry) => entry.name);
+  const localDataEntries = entries
+    .filter((entry) => localDataFiles.has(entry.name))
+    .map((entry) => entry.name);
+
+  if (localDataEntries.length) {
+    throw new Error(`打包产物禁止包含本地数据文件：${localDataEntries.join('、')}`);
+  }
+  if (unexpectedEntries.length) {
+    throw new Error(`打包产物包含未允许的文件：${unexpectedEntries.join('、')}`);
+  }
 }
 
 try {
@@ -141,7 +164,10 @@ try {
     await chmod(executablePath, 0o755);
   }
 
+  await assertDataFreePackage();
+
   console.log(`\n后端可执行程序: ${executablePath}`);
+  console.log('产物仅包含可执行文件，不包含本地中转站、CC Switch 导入结果或 GPT 账号数据。');
   console.log('可在同目录放置 .env 覆盖端口、数据目录等配置。');
 } finally {
   await rm(temporaryDir, { recursive: true, force: true });

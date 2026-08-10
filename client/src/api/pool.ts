@@ -18,14 +18,27 @@ export async function getPoolStatus(signal?: AbortSignal): Promise<PoolStatus> {
   return (await http.get<ApiEnvelope<PoolStatus>>('/pool', { signal })).data.data;
 }
 
-export async function startPool(port = 0, relayIds: string[] = [], routingStrategy: PoolRoutingStrategy = 'round-robin'): Promise<PoolStartResult> {
+export async function startPool(
+  port = 0,
+  relayIds: string[] = [],
+  routingStrategy: PoolRoutingStrategy = 'round-robin',
+  modelMap: Record<string, string[]> = {}
+): Promise<PoolStartResult> {
   requireServer();
-  return (await http.post<ApiEnvelope<PoolStartResult>>('/pool/start', { port, relayIds, routingStrategy })).data.data;
+  return (await http.post<ApiEnvelope<PoolStartResult>>('/pool/start', { port, relayIds, routingStrategy, modelMap })).data.data;
 }
 
 export async function updatePoolRoutingStrategy(routingStrategy: PoolRoutingStrategy): Promise<PoolStatus> {
   requireServer();
   return (await http.post<ApiEnvelope<PoolStatus>>('/pool/strategy', { routingStrategy })).data.data;
+}
+
+export async function addPoolRelays(
+  relayIds: string[],
+  modelMap: Record<string, string[]> = {}
+): Promise<PoolStatus> {
+  requireServer();
+  return (await http.post<ApiEnvelope<PoolStatus>>('/pool/relays', { relayIds, modelMap })).data.data;
 }
 
 export async function stopPool(): Promise<PoolStatus> {

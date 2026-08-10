@@ -9,6 +9,7 @@ import { createApp } from '../src/app.js';
 import { HistoryRepository } from '../src/repositories/history-repository.js';
 import { PoolUsageRepository } from '../src/repositories/pool-usage-repository.js';
 import { RelayRepository } from '../src/repositories/relay-repository.js';
+import { BalanceService } from '../src/services/balance-service.js';
 import { RelayTester } from '../src/services/relay-tester.js';
 import type { PoolProxyService } from '../src/services/pool-proxy-service.js';
 import type { PoolStartResult, PoolStatus, PoolUsageRecord, Relay, TestResult } from '../src/types.js';
@@ -40,6 +41,16 @@ class FakeTester extends RelayTester {
   }
 }
 
+class FakeBalanceService extends BalanceService {
+  constructor(private readonly repository: RelayRepository) {
+    super(repository);
+  }
+
+  override async query(id: string): Promise<Relay> {
+    return this.repository.find(id);
+  }
+}
+
 let directory: string;
 let app: Express;
 let relays: RelayRepository;
@@ -53,6 +64,7 @@ beforeEach(async () => {
     relays,
     history: new HistoryRepository(path.join(directory, 'history.json')),
     tester: new FakeTester(),
+    balance: new FakeBalanceService(relays),
     poolUsage,
     startBalanceScheduler: false
   });
@@ -84,6 +96,7 @@ const poolStatus = (active: boolean): PoolStatus => ({
   cooldownRelayCount: 0,
   routingStrategy: 'round-robin',
   relayIds: active ? ['57cbca38-99f1-49f7-a47f-ffb795d8d5c1'] : [],
+  modelMap: {},
   platform: active ? 'openai' : null,
   apiKey: active ? 'rp_simulated' : '',
   balanceSummary: [],
@@ -109,6 +122,13 @@ const poolUsageRecord = (overrides: Partial<PoolUsageRecord> = {}): PoolUsageRec
   errorMessage: '余额已耗尽',
   ...overrides
 });
+
+const binaryParser = (response: NodeJS.ReadableStream, callback: (error: Error | null, body?: Buffer) => void): void => {
+  const chunks: Buffer[] = [];
+  response.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+  response.on('end', () => callback(null, Buffer.concat(chunks)));
+  response.on('error', (error: Error) => callback(error));
+};
 
 describe('relay API', () => {
   it('clears usage records around simulated pool service start and stop', async () => {
@@ -157,6 +177,12 @@ describe('relay API', () => {
 
   it('manages the local pool service and exposes filtered usage exports', async () => {
     const openAiRelay = await relays.create({ ...input, platform: 'openai' });
+    const backupRelay = await relays.create({
+      ...input,
+      name: '线路二',
+      baseUrl: 'https://backup.example.com/v1/',
+      platform: 'openai'
+    });
     const anthropicRelay = await relays.create({
       ...input,
       name: 'Anthropic 线路',
@@ -186,11 +212,27 @@ describe('relay API', () => {
       expect(body.data.apiKey).toBe(started.body.data.apiKey);
     });
 
+    await request(app)
+      .post('/api/pool/relays')
+      .send({ relayIds: [backupRelay.id], modelMap: { [backupRelay.id]: ['gpt-test'] } })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data).toMatchObject({
+          active: true,
+          baseUrl: started.body.data.baseUrl,
+          apiKey: started.body.data.apiKey,
+          relayIds: [openAiRelay.id, backupRelay.id],
+          modelMap: { [backupRelay.id]: ['gpt-test'] }
+        });
+      });
+    await request(app).post('/api/pool/relays').send({ relayIds: [backupRelay.id] }).expect(400);
+    await request(app).post('/api/pool/relays').send({ relayIds: [anthropicRelay.id] }).expect(400);
+
     await request(app).post('/api/pool/start').send({ port: 0, relayIds: [openAiRelay.id] }).expect(409);
     const rotated = await request(app).post('/api/pool/key/rotate').expect(200);
     expect(rotated.body.data.apiKey).not.toBe(started.body.data.apiKey);
     await request(app).post('/api/pool/refresh').expect(200).expect(({ body }) => {
-      expect(body.data).toMatchObject({ active: true, eligibleRelayCount: 1 });
+      expect(body.data).toMatchObject({ active: true, eligibleRelayCount: 2 });
     });
     await request(app).post('/api/pool/strategy').send({ routingStrategy: 'invalid' }).expect(400);
     await request(app).post('/api/pool/strategy').send({ routingStrategy: 'round-robin' }).expect(200).expect(({ body }) => {
@@ -217,6 +259,7 @@ describe('relay API', () => {
       expect(body.data).toMatchObject({ active: false, port: null });
     });
     await request(app).post('/api/pool/strategy').send({ routingStrategy: 'random' }).expect(409);
+    await request(app).post('/api/pool/relays').send({ relayIds: [openAiRelay.id] }).expect(409);
     await request(app).post('/api/pool/key/rotate').expect(409);
   });
 
@@ -324,6 +367,41 @@ describe('relay API', () => {
     expect(credentials.body.data).toEqual({ apiKey: 'balance-api-key', accessToken: '' });
     const listed = await request(app).get('/api/relays').expect(200);
     expect(JSON.stringify(listed.body)).not.toContain('balance-api-key');
+  });
+
+  it('returns a public relay after a balance refresh', async () => {
+    const created = await request(app).post('/api/relays').send(input).expect(201);
+    const refreshed = await request(app).post(`/api/relays/${created.body.data.id}/balance`).expect(200);
+
+    expect(refreshed.body.data.apiKey).toBeUndefined();
+    expect(refreshed.body.data.apiKeyMasked).toBeDefined();
+    expect(refreshed.body.data.apiKeyMasked).not.toContain(input.apiKey);
+  });
+
+  it('exports all relay data and imports it as disabled relays', async () => {
+    await request(app).post('/api/relays').send({
+      ...input,
+      name: '可导出线路',
+      balanceConfig: { template: 'generic', requestUrl: '', apiKey: 'balance-secret', userId: '', timeout: 10000, intervalMinutes: 5, enabled: true }
+    }).expect(201);
+
+    const exported = await request(app)
+      .get('/api/relays/export')
+      .buffer(true)
+      .parse(binaryParser)
+      .expect('Content-Type', /spreadsheetml\.sheet/)
+      .expect(200);
+    expect(exported.body).toBeInstanceOf(Buffer);
+    expect(exported.body.subarray(0, 2).toString()).toBe('PK');
+
+    const imported = await request(app)
+      .post('/api/relays/import')
+      .set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .send(exported.body)
+      .expect(200);
+    expect(imported.body.data.imported).toHaveLength(1);
+    expect(imported.body.data.imported[0]).toMatchObject({ name: '可导出线路', enabled: false });
+    expect(imported.body.data.imported[0].apiKeyMasked).toBeDefined();
   });
 
   it('tests a relay and stores history', async () => {

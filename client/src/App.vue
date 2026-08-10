@@ -3,6 +3,7 @@ import { computed, watchEffect } from 'vue';
 import { ConfigProvider, theme as antTheme } from 'ant-design-vue';
 import zhCN from 'ant-design-vue/es/locale/zh_CN';
 import { useThemeStore } from './stores/theme';
+import AppLayout from './components/AppLayout.vue';
 
 const themeStore = useThemeStore();
 const themeConfig = computed(() => ({
@@ -23,6 +24,6 @@ watchEffect(() => {
 
 <template>
   <ConfigProvider :locale="zhCN" :theme="themeConfig">
-    <RouterView />
+    <AppLayout />
   </ConfigProvider>
 </template>

@@ -1,6 +1,7 @@
 import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { config } from './config.js';
+import { CodexProxyService } from './services/codex-proxy-service.js';
 import { PoolProxyService } from './services/pool-proxy-service.js';
 
 let shuttingDown = false;
@@ -14,11 +15,11 @@ function closeServer(target: Server): Promise<void> {
   });
 }
 
-async function shutdown(signal: string, server: Server, pool: PoolProxyService): Promise<void> {
+async function shutdown(signal: string, server: Server, pool: PoolProxyService, codexProxy: CodexProxyService): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`收到 ${signal}，正在停止 Relay Pulse…`);
-  await pool.close();
+  await Promise.all([pool.close(), codexProxy.close()]);
   await closeServer(server);
 }
 
@@ -28,10 +29,11 @@ async function main(): Promise<void> {
     console.log(`Relay Pulse API: http://${config.host}:${config.port}`);
   });
   const pool = app.locals.pool as PoolProxyService;
+  const codexProxy = app.locals.codexProxy as CodexProxyService;
 
   (['SIGINT', 'SIGTERM'] as const).forEach((signal) => {
     process.once(signal, () => {
-      void shutdown(signal, server, pool)
+      void shutdown(signal, server, pool, codexProxy)
         .then(() => process.exit(0))
         .catch((error: unknown) => {
           console.error('Relay Pulse 关闭失败', error);

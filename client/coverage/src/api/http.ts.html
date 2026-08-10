@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">56.52% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>13/23</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">56.52% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>13/23</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -90,22 +90,23 @@
 <a name='L25'></a><a href='#L25'>25</a>
 <a name='L26'></a><a href='#L26'>26</a>
 <a name='L27'></a><a href='#L27'>27</a>
-<a name='L28'></a><a href='#L28'>28</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L28'></a><a href='#L28'>28</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -116,24 +117,23 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import axios from 'axios';</span></span></span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import axios from 'axios';
 import { resolveApiBaseUrl } from '../utils/runtime';
 &nbsp;
-<span class="cstat-no" title="statement not covered" >const runtimeProtocol = typeof window === 'undefined' ? '' : window.location.protocol;</span>
+const runtimeProtocol = typeof window === 'undefined' ? <span class="branch-0 cbranch-no" title="branch not covered" >'' : window.location.protocol;</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export const http = axios.create({</span>
-<span class="cstat-no" title="statement not covered" >  baseURL: resolveApiBaseUrl(</span>
-<span class="cstat-no" title="statement not covered" >    import.meta.env.VITE_API_BASE_URL,</span>
-<span class="cstat-no" title="statement not covered" >    runtimeProtocol,</span>
-<span class="cstat-no" title="statement not covered" >    import.meta.env.VITE_BUILD_TARGET,</span>
-<span class="cstat-no" title="statement not covered" >    import.meta.env.VITE_EXTENSION_DATA_MODE</span>
-<span class="cstat-no" title="statement not covered" >  ),</span>
-<span class="cstat-no" title="statement not covered" >  timeout: 130000,</span>
-<span class="cstat-no" title="statement not covered" >  headers: { 'Content-Type': 'application/json' }</span>
-<span class="cstat-no" title="statement not covered" >});</span>
+export const http = axios.create({
+  baseURL: resolveApiBaseUrl(
+    import.meta.env.VITE_API_BASE_URL,
+    runtimeProtocol,
+    import.meta.env.VITE_BUILD_TARGET,
+    import.meta.env.VITE_EXTENSION_DATA_MODE
+  ),
+  timeout: 130000,
+  headers: { 'Content-Type': 'application/json' }
+});
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function errorMessage(error: unknown): string {</span>
+export <span class="fstat-no" title="function not covered" >function errorMessage(error: unknown): string {</span>
 <span class="cstat-no" title="statement not covered" >  if (axios.isCancel(error)) return '请求已取消';</span>
 <span class="cstat-no" title="statement not covered" >  if (error instanceof DOMException &amp;&amp; error.name === 'AbortError') return '请求已取消';</span>
 <span class="cstat-no" title="statement not covered" >  if (axios.isAxiosError(error)) {</span>
@@ -151,7 +151,7 @@ import { resolveApiBaseUrl } from '../utils/runtime';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-31T03:54:51.232Z
+                at 2026-08-10T04:07:19.840Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

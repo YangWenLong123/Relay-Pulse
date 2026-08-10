@@ -4,6 +4,7 @@ import type {
   CcSwitchImportResult,
   Relay,
   RelayFormValue,
+  RelayImportResult,
   RelayPlatform,
   RelayProtocol,
   TestResult
@@ -44,6 +45,22 @@ export async function previewCcSwitchImport(signal?: AbortSignal): Promise<CcSwi
 export async function importFromCcSwitch(candidateIds: string[]): Promise<CcSwitchImportResult> {
   if (standaloneExtension) throw new Error('浏览器扩展模式无法直接读取电脑上的 CC Switch 数据库');
   return (await http.post<ApiEnvelope<CcSwitchImportResult>>('/import/cc-switch', { candidateIds })).data.data;
+}
+
+const relaySpreadsheetMime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+export async function exportRelays(): Promise<Blob> {
+  if (standaloneExtension) throw new Error('浏览器扩展模式暂不支持 Excel 导出');
+  return (await http.get<Blob>('/relays/export', { responseType: 'blob' })).data;
+}
+
+export async function importRelays(file: File): Promise<RelayImportResult> {
+  if (standaloneExtension) throw new Error('浏览器扩展模式暂不支持 Excel 导入');
+  return (await http.post<ApiEnvelope<RelayImportResult>>('/relays/import', file, {
+    headers: { 'Content-Type': file.type || relaySpreadsheetMime },
+    maxContentLength: 10 * 1024 * 1024,
+    maxBodyLength: 10 * 1024 * 1024
+  })).data.data;
 }
 
 export async function createRelay(value: RelayFormValue): Promise<Relay> {

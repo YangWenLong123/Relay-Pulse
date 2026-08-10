@@ -19,6 +19,7 @@ import {
   ReloadOutlined
 } from '@ant-design/icons-vue';
 import PaginationControl from './PaginationControl.vue';
+import { PAGINATION_PAGE_SIZE_OPTIONS } from '../utils/pagination';
 
 export type PoolUsageRequestStatus = 'success' | 'failed' | 'fallback' | 'exhausted';
 export type PoolUsageMetric = 'requests' | 'tokens';
@@ -141,6 +142,7 @@ const props = withDefaults(
     timeRangeOptions?: PoolUsageOption[];
     granularityOptions?: PoolUsageOption[];
     statusOptions?: PoolUsageOption[];
+    pageSizeOptions?: readonly number[];
     exportEnabled?: boolean;
   }>(),
   {
@@ -181,6 +183,7 @@ const props = withDefaults(
       { label: '切换成功', value: 'fallback' },
       { label: '余额耗尽', value: 'exhausted' }
     ],
+    pageSizeOptions: () => PAGINATION_PAGE_SIZE_OPTIONS,
     exportEnabled: true
   }
 );
@@ -678,6 +681,7 @@ function statusColor(status: PoolUsageRequestStatus): string {
         <PaginationControl
           :current="pagination.current"
           :page-size="pagination.pageSize"
+          :page-size-options="pageSizeOptions"
           :total="totalRecords"
           @update:current="updateCurrentPage"
           @update:page-size="updatePageSize"

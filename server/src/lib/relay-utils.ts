@@ -1,6 +1,6 @@
 import type { Relay, PublicRelay } from '../types.js';
 
-const terminalPaths = ['/chat/completions', '/responses', '/models', '/messages'];
+const terminalPaths = ['/chat/completions', '/responses', '/models', '/messages', '/images/generations', '/images/edits'];
 
 export function normalizeBaseUrl(value: string): string {
   const url = new URL(value.trim());

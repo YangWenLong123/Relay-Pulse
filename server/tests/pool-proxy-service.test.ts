@@ -519,7 +519,7 @@ describe('PoolProxyService', () => {
       });
       return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
     };
-    const service = createService(relays, upstreamFetch, records);
+    const service = createService(relays, upstreamFetch, records, async (source) => source, { streamIdleTimeoutMs: 20 });
     const started = await service.start();
 
     const response = await fetch(apiUrl(started, '/v1/chat/completions'), {
@@ -535,10 +535,96 @@ describe('PoolProxyService', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(calls).toEqual(['https://streaming.example.com/v1/chat/completions']);
-    expect(records[0]).toMatchObject({ relayId: 'streaming', status: 'failed', attempts: 1, errorCode: 'stream_interrupted' });
+    expect(records[0]).toMatchObject({ relayId: 'streaming', status: 'failed', attempts: 1, errorCode: 'upstream_stream_idle_timeout' });
   });
 
-  it('keeps the relay timeout active while buffering a non-stream response before falling back', async () => {
+  it('records an accepted upstream stream as successful when the downstream client disconnects', async () => {
+    const relays = [relay('streaming')];
+    const records: PoolUsageRecord[] = [];
+    let upstreamAborted = false;
+    const upstreamFetch: PoolProxyFetch = async (_input, init) => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"delta":"one"}\n\n'));
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              upstreamAborted = true;
+              controller.error(Object.assign(new Error('downstream disconnected'), { name: 'AbortError' }));
+            },
+            { once: true }
+          );
+        }
+      });
+      return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    };
+    const service = createService(relays, upstreamFetch, records);
+    const started = await service.start();
+    const controller = new AbortController();
+
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'gpt-test', input: 'hello', stream: true }),
+      signal: controller.signal
+    });
+    expect(response.status).toBe(200);
+    await expect(response.body?.getReader().read()).resolves.toMatchObject({ done: false });
+    controller.abort();
+
+    await waitForCondition(() => records.length === 1);
+    expect(upstreamAborted).toBe(true);
+    expect(records[0]).toMatchObject({
+      relayId: 'streaming',
+      status: 'success',
+      statusCode: 200,
+      attempts: 1,
+      errorCode: 'request_cancelled'
+    });
+  });
+
+  it('keeps a successful upstream status when forwarding a later stream chunk is interrupted', async () => {
+    const relays = [relay('streaming')];
+    const records: PoolUsageRecord[] = [];
+    const upstreamFetch: PoolProxyFetch = async () => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"delta":"one"}\n\n'));
+          setTimeout(() => {
+            controller.enqueue(encoder.encode('data: {"delta":"two"}\n\n'));
+            controller.close();
+          }, 20);
+        }
+      });
+      return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    };
+    const service = createService(relays, upstreamFetch, records);
+    const started = await service.start();
+    const controller = new AbortController();
+
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'gpt-test', input: 'hello', stream: true }),
+      signal: controller.signal
+    });
+    expect(response.status).toBe(200);
+    await expect(response.body?.getReader().read()).resolves.toMatchObject({ done: false });
+    controller.abort();
+
+    await waitForCondition(() => records.length === 1);
+    expect(records[0]).toMatchObject({
+      relayId: 'streaming',
+      status: 'success',
+      statusCode: 200,
+      attempts: 1,
+      errorCode: 'stream_interrupted'
+    });
+  });
+
+  it('keeps the pool response timeout active while buffering a non-stream response before falling back', async () => {
     const relays = [relay('slow', { timeout: 20 }), relay('fast')];
     const calls: string[] = [];
     const records: PoolUsageRecord[] = [];
@@ -559,7 +645,7 @@ describe('PoolProxyService', () => {
       });
       return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/json' } });
     };
-    const service = createService(relays, upstreamFetch, records);
+    const service = createService(relays, upstreamFetch, records, async (source) => source, { responseTimeoutMs: 20 });
     const started = await service.start();
 
     const response = await fetch(apiUrl(started, '/v1/responses'), {
@@ -572,6 +658,35 @@ describe('PoolProxyService', () => {
     await expect(response.json()).resolves.toMatchObject({ output_text: 'fallback worked' });
     expect(calls).toEqual(['https://slow.example.com/v1/responses', 'https://fast.example.com/v1/responses']);
     expect(records[0]).toMatchObject({ relayId: 'fast', status: 'success', attempts: 2 });
+  });
+
+  it('uses the pool response timeout instead of the relay test timeout while buffering', async () => {
+    const relays = [relay('slow-body', { timeout: 1 })];
+    const records: PoolUsageRecord[] = [];
+    const upstreamFetch: PoolProxyFetch = async () => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          setTimeout(() => {
+            controller.enqueue(encoder.encode(JSON.stringify({ output_text: 'waited for body' })));
+            controller.close();
+          }, 30);
+        }
+      });
+      return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    const service = createService(relays, upstreamFetch, records, async (source) => source, { responseTimeoutMs: 120 });
+    const started = await service.start();
+
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'gpt-test', input: 'hello' })
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ output_text: 'waited for body' });
+    expect(records[0]).toMatchObject({ relayId: 'slow-body', status: 'success', attempts: 1 });
   });
 
   it('cancels an in-flight start before it can leave a listener running', async () => {
@@ -745,7 +860,7 @@ describe('PoolProxyService', () => {
     expect(idempotencyKeys[2]).toBe(callerKey);
   });
 
-  it('falls back when a stream returns headers but no first chunk before the relay timeout', async () => {
+  it('falls back when a stream returns headers but no first chunk before the pool first-byte timeout', async () => {
     const relays = [relay('header-only', { timeout: 25 }), relay('stream-fallback')];
     const calls: string[] = [];
     const upstreamFetch: PoolProxyFetch = async (input, init) => {
@@ -772,7 +887,7 @@ describe('PoolProxyService', () => {
       });
       return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
     };
-    const service = createService(relays, upstreamFetch);
+    const service = createService(relays, upstreamFetch, [], async (source) => source, { firstByteTimeoutMs: 25 });
     const started = await service.start();
 
     const response = await fetch(apiUrl(started, '/v1/chat/completions'), {
@@ -838,5 +953,180 @@ describe('PoolProxyService', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ output_text: 'fallback worked' });
     expect(calls).toEqual(['https://too-large.example.com/v1/responses', 'https://small.example.com/v1/responses']);
+  });
+
+  it('routes a request only to relays whose model subset contains the requested model', async () => {
+    const relays = [relay('gpt-relay'), relay('claude-relay')];
+    const calls: string[] = [];
+    const records: PoolUsageRecord[] = [];
+    const upstreamFetch: PoolProxyFetch = async (input) => {
+      calls.push(input.toString());
+      return new Response(JSON.stringify({ output_text: 'ok' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    const service = createService(relays, upstreamFetch, records);
+    const started = await service.start({
+      relayIds: ['gpt-relay', 'claude-relay'],
+      modelMap: { 'gpt-relay': ['gpt-4o'], 'claude-relay': ['claude-3'] }
+    });
+    expect(started.modelMap).toEqual({ 'gpt-relay': ['gpt-4o'], 'claude-relay': ['claude-3'] });
+
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'claude-3', input: 'hello' })
+    });
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual(['https://claude-relay.example.com/v1/responses']);
+    expect(records[0]).toMatchObject({ relayId: 'claude-relay', model: 'claude-3', status: 'success', attempts: 1 });
+  });
+
+  it('returns model_not_found when no relay subset contains the requested model', async () => {
+    const relays = [relay('gpt-relay')];
+    const calls: string[] = [];
+    const records: PoolUsageRecord[] = [];
+    const upstreamFetch: PoolProxyFetch = async (input) => {
+      calls.push(input.toString());
+      return new Response(JSON.stringify({ output_text: 'ok' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    const service = createService(relays, upstreamFetch, records);
+    const started = await service.start({ relayIds: ['gpt-relay'], modelMap: { 'gpt-relay': ['gpt-4o'] } });
+
+    const response = await fetch(apiUrl(started, '/v1/chat/completions'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'unknown-model', messages: [] })
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: 'model_not_found' } });
+    expect(calls).toEqual([]);
+    expect(records[0]).toMatchObject({ status: 'failed', errorCode: 'model_not_found', attempts: 0 });
+  });
+
+  it('treats a relay without a configured subset as accepting any model', async () => {
+    const relays = [relay('subset'), relay('open')];
+    const calls: string[] = [];
+    const upstreamFetch: PoolProxyFetch = async (input) => {
+      calls.push(input.toString());
+      return new Response(JSON.stringify({ output_text: 'ok' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    const service = createService(relays, upstreamFetch);
+    const started = await service.start({ relayIds: ['subset', 'open'], modelMap: { subset: ['only-this'] } });
+
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'anything-else', input: 'hello' })
+    });
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual(['https://open.example.com/v1/responses']);
+  });
+
+  it('lists configured subset models without calling the relay upstream and merges with probed relays', async () => {
+    const relays = [relay('subset'), relay('probed')];
+    const calls: string[] = [];
+    const upstreamFetch: PoolProxyFetch = async (input) => {
+      const url = input.toString();
+      calls.push(url);
+      return new Response(
+        JSON.stringify({ object: 'list', data: [{ id: 'probed-model', object: 'model' }] }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+    const service = createService(relays, upstreamFetch);
+    const started = await service.start({ relayIds: ['subset', 'probed'], modelMap: { subset: ['pinned-a', 'pinned-b'] } });
+
+    const response = await fetch(apiUrl(started, '/v1/models'), { headers: poolHeaders(started.apiKey) });
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: Array<{ id: string }> };
+    expect(body.data.map((entry) => entry.id).sort()).toEqual(['pinned-a', 'pinned-b', 'probed-model']);
+    expect(calls).toEqual(['https://probed.example.com/v1/models']);
+  });
+
+  it('adds relays to a running pool without changing its connection details', async () => {
+    const relays = [relay('primary'), relay('secondary')];
+    const calls: string[] = [];
+    const service = createService(relays, async (input) => {
+      calls.push(input.toString());
+      return new Response(JSON.stringify({ output_text: 'ok' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+    const started = await service.start({ relayIds: ['primary'] });
+
+    const updated = await service.addRelays(['secondary']);
+
+    expect(updated).toMatchObject({
+      active: true,
+      port: started.port,
+      baseUrl: started.baseUrl,
+      apiKey: started.apiKey,
+      relayIds: ['primary', 'secondary'],
+      eligibleRelayCount: 2
+    });
+    for (let index = 0; index < 2; index += 1) {
+      const response = await fetch(apiUrl(started, '/v1/responses'), {
+        method: 'POST',
+        headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ model: 'gpt-test', input: 'hello' })
+      });
+      expect(response.status).toBe(200);
+    }
+    expect(calls).toEqual([
+      'https://primary.example.com/v1/responses',
+      'https://secondary.example.com/v1/responses'
+    ]);
+  });
+
+  it('rejects duplicate, disabled, and cross-platform additions', async () => {
+    const relays = [
+      relay('primary'),
+      relay('disabled', { enabled: false }),
+      relay('anthropic', { platform: 'anthropic' })
+    ];
+    const service = createService(relays, async () => new Response('{}', { status: 200 }));
+    await service.start({ relayIds: ['primary'] });
+
+    await expect(service.addRelays(['primary'])).rejects.toThrow('已在号池中');
+    await expect(service.addRelays(['disabled'])).rejects.toThrow('已停用');
+    await expect(service.addRelays(['anthropic'])).rejects.toThrow('与当前号池一致');
+    expect(service.status().relayIds).toEqual(['primary']);
+  });
+
+  it('keeps an added negative-balance relay configured but excludes it from routing', async () => {
+    const relays = [relay('primary'), relay('negative')];
+    const calls: string[] = [];
+    const service = createService(
+      relays,
+      async (input) => {
+        calls.push(input.toString());
+        return new Response(JSON.stringify({ output_text: 'ok' }), { status: 200 });
+      },
+      [],
+      async (source) => source.id === 'negative'
+        ? { ...source, balance: { ...source.balance!, remaining: -1, used: 11 } }
+        : source
+    );
+    const started = await service.start({ relayIds: ['primary'] });
+
+    const updated = await service.addRelays(['negative']);
+
+    expect(updated).toMatchObject({ relayIds: ['primary', 'negative'], eligibleRelayCount: 1 });
+    expect(updated.balanceDetails).toContainEqual(expect.objectContaining({
+      relayId: 'negative',
+      initialBalance: -1,
+      currentBalance: -1
+    }));
+    const response = await fetch(apiUrl(started, '/v1/responses'), {
+      method: 'POST',
+      headers: poolHeaders(started.apiKey, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model: 'gpt-test', input: 'hello' })
+    });
+    expect(response.status).toBe(200);
+    expect(calls).toEqual(['https://primary.example.com/v1/responses']);
   });
 });

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/40</span>
+                <span class='fraction'>0/41</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/40</span>
+                <span class='fraction'>0/41</span>
             </div>
         
             
@@ -110,20 +110,14 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -133,7 +127,17 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -160,6 +164,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import type { Server } from 'node:http';<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
 <span class="cstat-no" title="statement not covered" >import { createApp } from './app.js';</span>
 <span class="cstat-no" title="statement not covered" >import { config } from './config.js';</span>
+import { CodexProxyService } from './services/codex-proxy-service.js';
 import { PoolProxyService } from './services/pool-proxy-service.js';
 &nbsp;
 <span class="cstat-no" title="statement not covered" >let shuttingDown = false;</span>
@@ -173,11 +178,11 @@ import { PoolProxyService } from './services/pool-proxy-service.js';
 <span class="cstat-no" title="statement not covered" >  });</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >async function shutdown(signal: string, server: Server, pool: PoolProxyService): Promise&lt;void&gt; {</span>
+<span class="cstat-no" title="statement not covered" >async function shutdown(signal: string, server: Server, pool: PoolProxyService, codexProxy: CodexProxyService): Promise&lt;void&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  if (shuttingDown) return;</span>
 <span class="cstat-no" title="statement not covered" >  shuttingDown = true;</span>
 <span class="cstat-no" title="statement not covered" >  console.log(`收到 ${signal}，正在停止 Relay Pulse…`);</span>
-<span class="cstat-no" title="statement not covered" >  await pool.close();</span>
+<span class="cstat-no" title="statement not covered" >  await Promise.all([pool.close(), codexProxy.close()]);</span>
 <span class="cstat-no" title="statement not covered" >  await closeServer(server);</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
@@ -187,10 +192,11 @@ import { PoolProxyService } from './services/pool-proxy-service.js';
 <span class="cstat-no" title="statement not covered" >    console.log(`Relay Pulse API: http://${config.host}:${config.port}`);</span>
 <span class="cstat-no" title="statement not covered" >  });</span>
 <span class="cstat-no" title="statement not covered" >  const pool = app.locals.pool as PoolProxyService;</span>
+<span class="cstat-no" title="statement not covered" >  const codexProxy = app.locals.codexProxy as CodexProxyService;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  (['SIGINT', 'SIGTERM'] as const).forEach((signal) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    process.once(signal, () =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      void shutdown(signal, server, pool)</span>
+<span class="cstat-no" title="statement not covered" >      void shutdown(signal, server, pool, codexProxy)</span>
 <span class="cstat-no" title="statement not covered" >        .then(() =&gt; process.exit(0))</span>
 <span class="cstat-no" title="statement not covered" >        .catch((error: unknown) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >          console.error('Relay Pulse 关闭失败', error);</span>
@@ -211,7 +217,7 @@ import { PoolProxyService } from './services/pool-proxy-service.js';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-31T05:12:30.448Z
+                at 2026-08-10T04:07:17.931Z
             </div>
         <script src="../prettify.js"></script>
         <script>

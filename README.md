@@ -10,9 +10,12 @@ Relay Pulse 是一个本地运行的 AI 中转站连接测试工具。它管理 
 - 从本机 CC Switch 预览并批量导入 Codex、Claude 中转站配置
 - 本机号池服务：为余额充足的 OpenAI 兼容中转提供统一 Base URL 与临时 API Key，失败自动回退
 - 号池使用记录：按模型、中转站、端点和时间查看请求、Token、成功率与耗时，并支持 CSV 导出
+- GPT/Codex 账号管理：导入 CPA、sub2api、Codex-Manager 与 Codex auth.json，展示额度、同步可用模型、启动仅本机可访问的 Responses 代理，并通过 Deep Link 导入 CC Switch
+- GPT 账号调用明细：持久化记录账号、模型、重试次数、Token、耗时和脱敏错误摘要
 - API Key 服务端保存、接口脱敏、编辑留空保留原 Key
 - Responses、Chat Completions 与自动回退模式
 - 模型列表探测、默认发送 `hi` 的单连接测试
+- 中转站纯度检测：自动探测全部可用模型，并实时展示模型声明、协议形状、Token 计数、能力透传与重复稳定性探针
 - 固定并发批量测试、停止任务、重试失败项
 - 测试历史筛选、单条删除与清空，默认最多保留 1000 条
 - 浅色、深色、跟随系统主题及响应式界面
@@ -71,7 +74,7 @@ npm run package:server
 npm run package:server:windows
 ```
 
-本机产物位于 `release/relay-pulse-<平台>-<架构>/relay-pulse-start`，Windows x64 产物位于 `release/relay-pulse-windows-x64/relay-pulse-start.exe`。Windows 版本可以在 macOS、Linux 或 Windows 上交叉构建；脚本通过当前 npm registry 下载 Windows Node.js 运行时并校验包完整性。双击或从终端运行该程序即可启动后端；同目录可放置 `.env` 覆盖配置。打包版默认将数据写入系统用户应用数据目录，而不是程序安装目录。
+本机产物位于 `release/relay-pulse-<平台>-<架构>/relay-pulse-start`，Windows x64 产物位于 `release/relay-pulse-windows-x64/relay-pulse-start.exe`。Windows 版本可以在 macOS、Linux 或 Windows 上交叉构建；脚本通过当前 npm registry 下载 Windows Node.js 运行时并校验包完整性。双击或从终端运行该程序即可启动后端；同目录可放置 `.env` 覆盖配置。打包版默认将数据写入系统用户应用数据目录，而不是程序安装目录；打包产物只包含可执行文件，不会带入本地中转站、CC Switch 导入结果或 GPT 账号数据。
 
 ## 浏览器扩展
 
@@ -114,8 +117,13 @@ Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加�
 | `DATA_DIR`                  | `./data`                | JSON 数据目录                                 |
 | `HISTORY_LIMIT`             | `1000`                  | 历史记录上限                                  |
 | `POOL_USAGE_LIMIT`          | `10000`                 | 本机号池使用记录保留上限，最高 100000 条       |
+| `CODEX_USAGE_LIMIT`         | `10000`                 | GPT 账号调用明细保留上限，最高 100000 条       |
 | `BATCH_CONCURRENCY`         | `4`                     | 服务端批测并发数，最高 10                     |
-| `API_KEY_ENCRYPTION_SECRET` | 空                      | 可选；设置后使用 AES-256-GCM 加密本地 API Key |
+| `API_KEY_ENCRYPTION_SECRET` | 空                      | 可选；使用 AES-256-GCM 加密本地中转 API Key；也作为未单独配置 session 密钥时的后备密钥 |
+| `ACCOUNT_SESSION_ENCRYPTION_SECRET` | 空              | 可选；使用 AES-256-GCM 加密本地 GPT/Codex session；优先于 `API_KEY_ENCRYPTION_SECRET` |
+| `CODEX_UPSTREAM_BASE_URL`   | `https://chatgpt.com/backend-api/codex` | GPT/Codex session 的上游基础地址；服务会追加 `/responses` 或 `/models` |
+| `CODEX_UPSTREAM_PROXY_URL`  | 空                      | 可选；GPT/Codex 上游专用 HTTP(S) 代理，例如 `http://127.0.0.1:7890`；同步模型和本机代理请求都会走该代理 |
+| `CODEX_CLIENT_VERSION`      | `0.145.0`               | 模型同步请求发送的 Codex 客户端版本；上游升级后可按本机 Codex CLI 版本覆盖 |
 | `CC_SWITCH_DB_PATH`         | `~/.cc-switch/cc-switch.db` | CC Switch SQLite 数据库路径               |
 | `VITE_API_BASE_URL`         | `/api`                  | 前端 API 地址，配置在 `client/.env*` 中       |
 
@@ -129,14 +137,22 @@ CC Switch 导入由本机 Node.js 后端只读访问 SQLite 数据库。打开�
 
 - `data/relays.json`
 - `data/test-history.json`
+- `data/codex-accounts.json`
+- `data/codex-usage.json`
 
-这些 JSON 文件会在首次启动时创建，使用临时文件原子替换并串行写入，文件权限为当前用户可读写。JSON 损坏时服务会明确报错并保留原文件，不会自动覆盖。号池使用记录仅保存在当前后端进程内存中；每次本机号池启动会重新开始记录，停止号池或关闭服务后记录会清空，不会写入数据目录。
+这些 JSON 文件会在首次启动时创建，使用临时文件原子替换并串行写入，文件权限为当前用户可读写。JSON 损坏时服务会明确报错并保留原文件，不会自动覆盖。号池使用记录仅保存在当前后端进程内存中；每次本机号池启动会重新开始记录，停止号池或关闭服务后记录会清空，不会写入数据目录。GPT 账号调用明细保存在 `data/codex-usage.json`，并按 `CODEX_USAGE_LIMIT` 自动裁剪。
 
-默认情况下，API Key 因测试请求需要会以明文保存在 `data/relays.json`。本工具仅适用于可信本地环境。建议在 `.env` 设置高强度的 `API_KEY_ENCRYPTION_SECRET`；服务启动时会将已有明文 Key 自动迁移为 AES-256-GCM 密文。该密钥不会写入数据文件，必须单独安全备份；丢失或修改后原数据无法解密。列表、详情、历史和错误响应始终不会返回完整 Key。
+默认情况下，API Key 因测试请求需要会以明文保存在 `data/relays.json`。GPT/Codex session 保存在 `data/codex-accounts.json`，并且列表与 API 响应不会返回 session、访问令牌或完整账号 ID。本工具仅适用于可信本地环境。建议在 `.env` 设置高强度的 `API_KEY_ENCRYPTION_SECRET`，并为账号 session 设置独立的 `ACCOUNT_SESSION_ENCRYPTION_SECRET`；服务启动时会将已有明文内容自动迁移为 AES-256-GCM 密文。若未设置后者，会回退使用前者。密钥不会写入数据文件，必须单独安全备份；丢失或修改后对应数据无法解密。
 
 服务默认只监听 `127.0.0.1`。扩展来源放行仅适用于这个可信本地运行模式；如需部署到公网，应关闭 `ALLOW_EXTENSION_ORIGINS`，并增加身份认证、访问控制和 HTTPS，同时启用密钥加密存储。
 
 DNS、TCP 与 TLS 分段耗时在 Node 原生 Fetch 中无法可靠获取，因此返回 `null`；首字节耗时使用收到响应头的时间，总耗时覆盖整个测试过程。
+
+## 纯度检测
+
+“纯度检测”会在选择中转站后自动探测并列出全部可用模型，再使用带随机标记的多轮黑盒探针，分别检查返回模型声明、协议字段、Token 计数自洽性、工具调用透传和重复请求稳定性。探针进度、请求数、Token 和已完成结果会在检测期间实时更新。标准模式比快速模式采集更多交叉证据，也会产生更多上游请求和 Token 消耗。检测结果只在当前页面展示，不写入测试历史，也不会包含完整 API Key 或原始上游响应。
+
+黑盒检测无法证明中转站的内部路由，也无法排除针对探针的选择性放行。页面中的结论表示本轮观测置信度，不是官方来源认证；余额不足、鉴权失败、模型不可用或首个请求无法完成时会显示“无法判断”，而不是生成误导性的低分。
 
 ## 本机号池
 
@@ -155,6 +171,35 @@ curl http://127.0.0.1:58000/v1/chat/completions \
 
 调用明细会记录实际响应中转、模型、端点、尝试次数、Token、耗时和错误摘要；不会记录本机号池 API Key 或上游密钥。使用记录仅在当前本机号池启动期间可用，停止号池或关闭后端服务后会清空。
 
+## GPT/Codex 账号代理
+
+在“GPT 账号”页选择一个或多个 JSON 文件导入。支持 CPA 单账号 session、sub2api 的 `accounts[].credentials` 数据包、Codex-Manager 账号数组导出，以及 Codex CLI/Codex-Manager 的 `auth.json`。导入时会统一转换为本地 session；每个账号必须含有 `access_token`，账号 ID 使用 `chatgpt_account_id`、`account_id`，或从 JWT 声明中读取。`email`、`name`、`plan_type` 等字段用于列表展示。单次最多导入 200 个账号，同一账号再次导入会更新本地 session，而不会新建重复账号。请仅导入你有权使用的账号 session，并妥善保管原始文件。
+
+导入后可按账号或批量“同步模型”。服务会使用该账号 session 从 `CODEX_UPSTREAM_BASE_URL` 的 `/models` 上游接口获取模型列表；模型同步失败会保留脱敏错误信息。点击“刷新额度”后，列表会显示短周期和长周期额度的剩余百分比及更新时间，详情弹窗继续展示重置时间、套餐和积分信息。如本机无法直连 ChatGPT，请在根目录 `.env` 配置 `CODEX_UPSTREAM_PROXY_URL=http://127.0.0.1:7890`（端口请按你的代理客户端 HTTP 代理端口调整）后重启后端；模型同步、额度刷新和本机 Responses 代理都会使用该通道。启动服务时可选择账号、端口（`0` 表示由系统分配）和轮询策略。服务只监听 `127.0.0.1`，启动后生成临时 `rp_codex_...` API Key；停止服务、重启后端或轮换 Key 后，旧 Key 会立即失效。
+
+本机代理仅支持 OpenAI Responses 协议，支持普通响应和 SSE 流式响应：
+
+| 方法 | 路径 | 用途 |
+| ---- | ---- | ---- |
+| `POST` | `/v1/responses` | 转发 Responses 请求至选中的 GPT/Codex 账号 |
+| `GET` | `/v1/models` | 返回已同步模型的 OpenAI 兼容列表 |
+| `GET` | `/v1/usage` | 返回当前可用账号数，供 CC Switch 用量脚本展示 |
+
+为便于本机客户端接入，`/responses`、`/models` 和 `/usage` 也可省略 `/v1` 前缀。请求可使用 `Authorization: Bearer <临时 Key>` 或 `X-API-Key: <临时 Key>` 鉴权；不支持 `/v1/chat/completions`。代理会在启用且未过期的已选账号之间按顺序轮询或随机路由。连接错误、上游鉴权失败、限流和 5xx 错误会尝试下一个兼容账号；请求的模型已同步时，只会选择声明支持该模型的账号。
+
+```bash
+curl http://127.0.0.1:58000/v1/responses \
+  -H 'Authorization: Bearer rp_codex_...' \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"<已同步模型>","input":"hi"}'
+```
+
+“调用明细”会持久化记录账号标签、模型、状态、HTTP 状态、尝试次数、首字节/总耗时和可识别的 Token 数；不会保存请求内容、响应正文、session、临时 API Key 或上游凭证。可在界面中按账号、模型和结果筛选或清空记录。
+
+### 导入 CC Switch
+
+GPT 账号服务运行后，点击“导入 CC Switch”会打开 `ccswitch://v1/import` Deep Link。Relay Pulse 会提供 `codex` Provider、`<本机 Base URL>/v1`、当前临时 API Key、首个已同步模型，以及访问 `/v1/usage` 的用量脚本；CC Switch 自己展示并确认导入，Relay Pulse 不会通过该按钮直接写入 CC Switch 数据库。`/v1/usage` 的 `remaining` 是当前可用账号数，单位为 `accounts`，不是账户余额或 Token 配额。服务停止、后端重启或 Key 轮换后，需要在 CC Switch 中重新导入新配置。
+
 ## API
 
 主要接口位于 `/api`：
@@ -162,6 +207,8 @@ curl http://127.0.0.1:58000/v1/chat/completions \
 - `GET/POST /relays`
 - `GET/PUT/DELETE /relays/:id`
 - `POST /relays/:id/test`
+- `POST /relays/:id/purity-test`
+- `POST /relays/:id/purity-test/stream`（NDJSON 实时进度）
 - `DELETE /relays/:id/test`（取消执行中的测试）
 - `GET /relays/:id/models`
 - `POST /relays/batch-test`
@@ -175,6 +222,13 @@ curl http://127.0.0.1:58000/v1/chat/completions \
 - `POST /pool/start`、`POST /pool/stop`、`POST /pool/refresh`、`POST /pool/strategy`
 - `POST /pool/key/rotate`
 - `GET /pool/usage`、`GET /pool/usage/export`
+- `GET /codex-accounts`
+- `POST /codex-accounts/import`、`PATCH/DELETE /codex-accounts/:id`
+- `POST /codex-accounts/:id/models`、`POST /codex-accounts/models`
+- `POST /codex-accounts/:id/usage`（刷新套餐信息与额度窗口）
+- `GET /codex-proxy`
+- `POST /codex-proxy/start`、`POST /codex-proxy/stop`、`POST /codex-proxy/key/rotate`
+- `GET/DELETE /codex-proxy/usage`
 
 ## 开源协议
 
