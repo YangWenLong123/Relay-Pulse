@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { createApp } from '../src/app.js';
+import { CodexAccountRepository } from '../src/repositories/codex-account-repository.js';
+import { CodexUsageRepository } from '../src/repositories/codex-usage-repository.js';
 import { HistoryRepository } from '../src/repositories/history-repository.js';
 import { PoolUsageRepository } from '../src/repositories/pool-usage-repository.js';
 import { RelayRepository } from '../src/repositories/relay-repository.js';
@@ -85,6 +87,10 @@ const input = {
   timeout: 30000,
   remark: ''
 };
+
+const chromiumExtensionOrigin = 'chrome-extension://nplnfohmiahjljnemfcjklclaoecogpi';
+const otherChromiumExtensionOrigin = 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const nativeExtensionToken = 'jKx0p8rEtQ4zS2uV6wY9aBcDeFgHiLmNoPqRsTuVwXy';
 
 const poolStatus = (active: boolean): PoolStatus => ({
   active,
@@ -315,18 +321,79 @@ describe('relay API', () => {
   });
 
   it('allows browser extension origins and rejects unconfigured web origins', async () => {
-    const chromiumOrigin = 'chrome-extension://nplnfohmiahjljnemfcjklclaoecogpi';
     const firefoxOrigin = 'moz-extension://b2436814-3d3e-4d71-99db-386f6ad18ec3';
 
     await request(app)
       .options('/api/relays')
-      .set('Origin', chromiumOrigin)
+      .set('Origin', chromiumExtensionOrigin)
       .set('Access-Control-Request-Method', 'GET')
-      .expect('Access-Control-Allow-Origin', chromiumOrigin)
+      .expect('Access-Control-Allow-Origin', chromiumExtensionOrigin)
       .expect(204);
-    await request(app).get('/api/health').set('Origin', firefoxOrigin).expect('Access-Control-Allow-Origin', firefoxOrigin).expect(200);
+    await request(app)
+      .get('/api/health')
+      .set('Origin', firefoxOrigin)
+      .expect('Access-Control-Allow-Origin', firefoxOrigin)
+      .expect(200)
+      .expect(({ body }) => expect(body.data).toMatchObject({ status: 'ok', service: 'relay-pulse' }));
     const rejected = await request(app).get('/api/health').set('Origin', 'https://example.com').expect(403);
     expect(rejected.body.message).toBe('请求来源不被允许');
+  });
+
+  it('allows the extension token through CORS while protecting private data from other extensions', async () => {
+    const protectedRelays = new RelayRepository(path.join(directory, 'protected-relays.json'));
+    const protectedApp = await createApp({
+      relays: protectedRelays,
+      history: new HistoryRepository(path.join(directory, 'protected-history.json')),
+      tester: new FakeTester(),
+      balance: new FakeBalanceService(protectedRelays),
+      poolUsage: new PoolUsageRepository(path.join(directory, 'protected-pool-usage.json'), 20),
+      codexAccounts: new CodexAccountRepository(path.join(directory, 'protected-codex-accounts.json'), 'extension-access-test-secret'),
+      codexUsage: new CodexUsageRepository(path.join(directory, 'protected-codex-usage.json'), 20),
+      startBalanceScheduler: false,
+      extensionAccessToken: nativeExtensionToken
+    });
+
+    try {
+      const relay = await protectedRelays.create(input);
+      const privateEndpoint = `/api/relays/${relay.id}/api-key`;
+      const preflight = await request(protectedApp)
+        .options(privateEndpoint)
+        .set('Origin', chromiumExtensionOrigin)
+        .set('Access-Control-Request-Method', 'GET')
+        .set('Access-Control-Request-Headers', 'content-type, x-relay-pulse-extension-token')
+        .expect('Access-Control-Allow-Origin', chromiumExtensionOrigin)
+        .expect(204);
+      const allowedHeaders = String(preflight.headers['access-control-allow-headers']).toLowerCase();
+      expect(allowedHeaders).toContain('content-type');
+      expect(allowedHeaders).toContain('x-relay-pulse-extension-token');
+
+      const denied = await request(protectedApp)
+        .get(privateEndpoint)
+        .set('Origin', otherChromiumExtensionOrigin)
+        .expect('Access-Control-Allow-Origin', otherChromiumExtensionOrigin)
+        .expect(401);
+      expect(denied.body).toMatchObject({ success: false, data: null, message: '扩展本机访问令牌无效' });
+
+      await request(protectedApp)
+        .get(privateEndpoint)
+        .set('Origin', chromiumExtensionOrigin)
+        .set('X-Relay-Pulse-Extension-Token', nativeExtensionToken)
+        .expect('Access-Control-Allow-Origin', chromiumExtensionOrigin)
+        .expect(200)
+        .expect(({ body }) => expect(body.data).toEqual({ apiKey: input.apiKey }));
+
+      await request(protectedApp)
+        .get(privateEndpoint)
+        .set('Origin', 'http://127.0.0.1:5173')
+        .expect(200)
+        .expect(({ body }) => expect(body.data).toEqual({ apiKey: input.apiKey }));
+      await request(protectedApp)
+        .get(privateEndpoint)
+        .expect(200)
+        .expect(({ body }) => expect(body.data).toEqual({ apiKey: input.apiKey }));
+    } finally {
+      await (protectedApp.locals.pool as PoolProxyService).close();
+    }
   });
 
   it('creates, masks, retrieves, edits without replacing an empty key, and deletes a relay', async () => {

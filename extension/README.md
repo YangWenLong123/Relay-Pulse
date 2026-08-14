@@ -1,12 +1,41 @@
 # Relay Pulse 浏览器扩展
 
-扩展默认以“扩展 UI + 本机后端”模式运行，配置、API Key、CC Switch 导入、号池服务和中转站测试都由本机 Node.js 后端处理。使用扩展前先在项目根目录运行：
+扩展默认以“扩展 UI + 本机后端”模式运行，配置、API Key、CC Switch 导入、号池服务和中转站测试都由本机后端处理。开发环境可在项目根目录手动运行：
 
 ```bash
 npm run start:extension
 ```
 
 默认后端地址为 `http://127.0.0.1:3100`。
+
+macOS arm64 的打包版不需要每次手动启动后端。`npm run package:server` 会在 `relay-pulse-start` 同目录生成 `relay-pulse-native-host`；为浏览器登记一次后，扩展会自动检查、启动或复用本机后端：
+
+```bash
+npm run package:server
+npm run install:native-host -- --browser chrome
+```
+
+只有打包目录时，可直接执行：
+
+```bash
+cd release/relay-pulse-darwin-arm64
+./relay-pulse-native-host --install --browser chrome
+```
+
+打包目录也包含可双击的 `install-native-host.command`；它默认登记 Chrome，并可在终端附加浏览器参数，例如 `./install-native-host.command --browser edge`。
+
+默认登记 Google Chrome。可将 `chrome` 换成 `edge`、`brave`、`chromium`、`opera` 或 `firefox`，或使用 `--all-browsers`。安装器向当前用户的浏览器 Native Messaging 目录写入 `com.relaypulse.host.json`，其中只允许固定扩展 ID 连接；它不会开放任意命令、端口或环境变量给扩展。
+
+Native Messaging manifest 使用后端目录的绝对路径。因此移动打包目录或替换 Host 文件后，需要重新登记：
+
+```bash
+./relay-pulse-native-host --repair --browser chrome
+./relay-pulse-native-host --uninstall --browser chrome
+```
+
+浏览器扩展无法直接启动任意本机程序；首次登记是浏览器安全模型要求。首次自动启动会在后端目录 `.env` 写入随机扩展访问令牌，令牌不会进入扩展包。登记完成后重新加载扩展，之后不必再运行 `npm run start:extension`。当前自动启动仅提供 macOS arm64 包；Windows 版本仍需手动启动后端。
+
+使用 `npm run package:server` 生成配套后端时，`relay-pulse-start` 同目录会生成 `.env` 和 `.env.example`。构建机器 `.env` 中不含凭据的 `CODEX_UPSTREAM_PROXY_URL` 会自动带入 `.env`；若需要凭据、加密密钥或其他敏感配置，请仅在该目录的 `.env` 中手动填写后再启动服务。
 
 ## 构建
 

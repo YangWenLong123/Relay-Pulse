@@ -75,6 +75,18 @@ function compactError(status: number, body: string): string {
   return message || `模型探测失败（HTTP ${status}）`;
 }
 
+function networkErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const candidate = error as { code?: unknown; cause?: { code?: unknown } };
+  if (typeof candidate.code === 'string' && candidate.code.trim()) return candidate.code.trim();
+  return typeof candidate.cause?.code === 'string' ? candidate.cause.code.trim() : '';
+}
+
+function networkErrorMessage(label: string, error: unknown): string {
+  const code = networkErrorCode(error);
+  return code ? `无法连接${label}（网络错误：${code}）` : `无法连接${label}`;
+}
+
 function readHeaderInt(headers: Headers, name: string): number | undefined {
   const raw = headers.get(name);
   if (!raw) return undefined;
@@ -264,8 +276,9 @@ export class CodexAccountService {
     } catch (error) {
       if (error instanceof HttpError) throw error;
       if ((error as { name?: unknown }).name === 'AbortError') throw new HttpError(504, '模型探测超时');
-      await this.accounts.setError(account.id, '无法连接模型服务');
-      throw new HttpError(502, '无法连接模型服务');
+      const message = networkErrorMessage('模型服务', error);
+      await this.accounts.setError(account.id, message);
+      throw new HttpError(502, message);
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
@@ -297,7 +310,7 @@ export class CodexAccountService {
       });
     } catch (error) {
       if ((error as { name?: unknown }).name === 'AbortError') throw new HttpError(504, '额度刷新超时');
-      throw new HttpError(502, '无法连接额度服务');
+      throw new HttpError(502, networkErrorMessage('额度服务', error));
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);

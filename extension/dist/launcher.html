@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="relay-pulse-data-mode" content="backend" />
+    <meta name="relay-pulse-api-url" content="http://127.0.0.1:3100/api" />
     <title>打开 Relay Pulse</title>
     <style>
       html,
@@ -17,18 +19,32 @@
 
       body {
         display: grid;
+        gap: 5px;
         place-items: center;
         padding: 12px;
+        text-align: center;
       }
 
       a {
         color: #397c78;
         font-weight: 600;
       }
+
+      p {
+        margin: 0;
+        color: #5d6967;
+        overflow-wrap: anywhere;
+      }
+
+      body[data-launch-failed='true'] p {
+        color: #a34b4b;
+      }
     </style>
   </head>
   <body>
+    <p id="launch-status" role="status">正在打开 Relay Pulse…</p>
     <a id="fallback-link" href="index.html#/" target="_blank" rel="noreferrer">打开 Relay Pulse</a>
+    <script src="native-backend.js"></script>
     <script src="launcher.js"></script>
   </body>
 </html>

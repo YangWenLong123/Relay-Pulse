@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runCustomPurityTestStream, runPurityTestStream } from '../src/api/purity';
-import { http } from '../src/api/http';
+import { extensionAccessTokenHeader, http, setHttpApiBaseUrl } from '../src/api/http';
 import type { PurityTestProgress, PurityTestResult } from '../src/types';
 
 const originalBaseUrl = http.defaults.baseURL;
+const originalExtensionToken = http.defaults.headers.common[extensionAccessTokenHeader];
 const encoder = new TextEncoder();
 
 const progress: PurityTestProgress = {
@@ -57,11 +58,14 @@ function streamResponse(chunks: Uint8Array[]): Response {
 afterEach(() => {
   vi.unstubAllGlobals();
   http.defaults.baseURL = originalBaseUrl;
+  if (originalExtensionToken === undefined) delete http.defaults.headers.common[extensionAccessTokenHeader];
+  else http.defaults.headers.common[extensionAccessTokenHeader] = originalExtensionToken;
 });
 
 describe('runPurityTestStream', () => {
   it('delivers progress before resolving the authoritative final result', async () => {
-    http.defaults.baseURL = 'http://127.0.0.1:3100/api/';
+    const extensionToken = 'a'.repeat(43);
+    setHttpApiBaseUrl('http://127.0.0.1:3100/api/', extensionToken);
     let controller!: ReadableStreamDefaultController<Uint8Array>;
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -94,7 +98,11 @@ describe('runPurityTestStream', () => {
       'http://127.0.0.1:3100/api/relays/relay%2F1/purity-test/stream',
       {
         method: 'POST',
-        headers: { Accept: 'application/x-ndjson', 'Content-Type': 'application/json' },
+        headers: {
+          Accept: 'application/x-ndjson',
+          'Content-Type': 'application/json',
+          [extensionAccessTokenHeader]: extensionToken
+        },
         body: JSON.stringify({ model: 'gpt-test', mode: 'quick' }),
         signal
       }

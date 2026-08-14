@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   extensionDataMode,
+  isBackendExtensionRuntime,
   isExtensionProtocol,
   isStandaloneExtensionRuntime,
   resolveApiBaseUrl
@@ -22,6 +23,8 @@ describe('extension runtime', () => {
     expect(isStandaloneExtensionRuntime('extension', 'http:', 'standalone')).toBe(true);
     expect(isStandaloneExtensionRuntime(undefined, 'moz-extension:', 'standalone')).toBe(true);
     expect(isStandaloneExtensionRuntime('web', 'https:')).toBe(false);
+    expect(isBackendExtensionRuntime('extension', 'chrome-extension:')).toBe(true);
+    expect(isBackendExtensionRuntime('extension', 'chrome-extension:', 'standalone')).toBe(false);
   });
 
   it('uses the local backend default for extension backend mode and normalizes configured URLs', () => {

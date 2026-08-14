@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   const app = await createApp();
   const server = app.listen(config.port, config.host, () => {
     console.log(`Relay Pulse API: http://${config.host}:${config.port}`);
+    console.log(`Codex 上游代理: ${config.codexUpstreamProxyUrl ? '已启用' : '未配置（直连）'}`);
   });
   const pool = app.locals.pool as PoolProxyService;
   const codexProxy = app.locals.codexProxy as CodexProxyService;

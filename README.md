@@ -74,7 +74,7 @@ npm run package:server
 npm run package:server:windows
 ```
 
-本机产物位于 `release/relay-pulse-<平台>-<架构>/relay-pulse-start`，Windows x64 产物位于 `release/relay-pulse-windows-x64/relay-pulse-start.exe`。Windows 版本可以在 macOS、Linux 或 Windows 上交叉构建；脚本通过当前 npm registry 下载 Windows Node.js 运行时并校验包完整性。双击或从终端运行该程序即可启动后端；同目录可放置 `.env` 覆盖配置。打包版默认将数据写入系统用户应用数据目录，而不是程序安装目录；打包产物只包含可执行文件，不会带入本地中转站、CC Switch 导入结果或 GPT 账号数据。
+本机产物位于 `release/relay-pulse-<平台>-<架构>/relay-pulse-start`，Windows x64 产物位于 `release/relay-pulse-windows-x64/relay-pulse-start.exe`。Windows 版本可以在 macOS、Linux 或 Windows 上交叉构建；脚本通过当前 npm registry 下载 Windows Node.js 运行时并校验包完整性。macOS arm64 包还会生成同目录的 `relay-pulse-native-host`，供浏览器扩展自动启动本机后端；Windows 当前仍需手动启动 `relay-pulse-start.exe`。打包目录会同时生成 `.env` 和 `.env.example`：`.env` 自动带入构建环境中的非敏感运行时配置（包括无账号密码的 `CODEX_UPSTREAM_PROXY_URL`），`.env.example` 可作为手动配置模板；加密密钥不会自动复制。双击或从终端运行 `relay-pulse-start` 仍可手动启动后端；打包版默认将数据写入系统用户应用数据目录，而不是程序安装目录；打包产物不会带入本地中转站、CC Switch 导入结果或 GPT 账号数据。
 
 ## 浏览器扩展
 
@@ -84,10 +84,45 @@ npm run package:server:windows
 npm run build:extension
 ```
 
-启动扩展所需的本地后端：
+开发时仍可手动启动扩展所需的本地后端：
 
 ```bash
 npm run start:extension
+```
+
+macOS arm64 打包版可通过 Native Messaging 在扩展打开时自动启动或复用后端。先构建配套后端，然后为实际使用的浏览器登记一次 Host：
+
+```bash
+npm run package:server
+npm run install:native-host -- --browser chrome
+```
+
+也可以进入打包目录直接登记，无需另行安装 Node.js：
+
+```bash
+cd release/relay-pulse-darwin-arm64
+./relay-pulse-native-host --install --browser chrome
+```
+
+同目录的 `install-native-host.command` 可在 Finder 双击，或在终端执行；默认登记 Chrome，后接的参数会转给安装器：
+
+```bash
+./install-native-host.command --browser edge
+```
+
+安装后扩展会连接固定名称 `com.relaypulse.host`，由它检查 `http://127.0.0.1:<端口>/api/health`；后端已在运行时直接复用，未运行时由同目录的 `relay-pulse-start` 启动。首次自动启动会在该目录 `.env` 写入随机的扩展访问令牌，令牌不会进入扩展包。以后无需再运行 `npm run start:extension`。Native Messaging 是浏览器为本机进程提供的受控通道，浏览器扩展不能仅凭 ZIP 自行启动任意程序，因此这个登记步骤不可省略。
+
+Host manifest 仅允许扩展固定 Chromium ID `nplnfohmiahjljnemfcjklclaoecogpi` 连接，后端仍仅监听本机回环地址。默认登记 Chrome；Edge、Brave、Chromium、Opera 或 Firefox 可改用相应名称，或一次登记全部：
+
+```bash
+npm run install:native-host -- --all-browsers
+```
+
+移动打包目录或更新 `relay-pulse-native-host` 后，重新执行 `--repair` 更新绝对路径。移除登记而不删除后端文件可使用 `--uninstall`：
+
+```bash
+./relay-pulse-native-host --repair --browser chrome
+./relay-pulse-native-host --uninstall --browser chrome
 ```
 
 构建产物位于：
@@ -100,7 +135,7 @@ npm run start:extension
 
 无需本地构建时，可直接下载 Chromium 浏览器扩展安装包：[relay-pulse-chromium.zip](https://github.com/YangWenLong123/Relay-Pulse/blob/main/extension/packages/relay-pulse-chromium.zip)。下载并解压后，在 Chrome、Edge、Brave 或 Opera 的扩展管理页开启开发者模式，再选择“加载已解压的扩展程序”。
 
-Chromium 浏览器需要在扩展管理页开启开发者模式，使用“加载已解压的扩展程序”选择 `extension/dist`。Firefox 在 `about:debugging#/runtime/this-firefox` 中选择“临时载入附加组件”，再选择 XPI 或 `manifest.json`。详细步骤见 [extension/README.md](extension/README.md)。
+Chromium 浏览器需要在扩展管理页开启开发者模式，使用“加载已解压的扩展程序”选择 `extension/dist`。Firefox 在 `about:debugging#/runtime/this-firefox` 中选择“临时载入附加组件”，再选择 XPI 或 `manifest.json`。使用自动启动时，先完成上面的 Native Messaging Host 登记并重新加载扩展。详细步骤见 [extension/README.md](extension/README.md)。
 
 Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加载，永久安装需要提交 Mozilla AMO 签名。Safari 需要通过 Xcode 的 Web Extension Converter 转换和签名，不属于可直接拖入安装的通用产物。
 
@@ -114,6 +149,7 @@ Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加�
 | `SERVER_HOST`               | `127.0.0.1`             | API 监听地址；默认仅允许本机访问              |
 | `CLIENT_ORIGIN`             | `http://localhost:5173` | 允许的网页前端来源，多个值使用英文逗号分隔    |
 | `ALLOW_EXTENSION_ORIGINS`   | `true`                  | 是否允许格式合法的浏览器扩展来源访问本机 API  |
+| `EXTENSION_ACCESS_TOKEN`    | 自动生成                | Native Messaging 自动启动时生成的本机扩展访问令牌；不要共享 |
 | `DATA_DIR`                  | `./data`                | JSON 数据目录                                 |
 | `HISTORY_LIMIT`             | `1000`                  | 历史记录上限                                  |
 | `POOL_USAGE_LIMIT`          | `10000`                 | 本机号池使用记录保留上限，最高 100000 条       |

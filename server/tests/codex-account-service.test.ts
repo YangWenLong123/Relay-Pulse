@@ -68,6 +68,46 @@ describe('CodexAccountService', () => {
     expect(JSON.stringify(updated)).not.toContain('test-model-sync-access-token');
   });
 
+  it('preserves a safe network error code when model discovery cannot reach the upstream', async () => {
+    const repository = await createRepository();
+    const account = (await repository.listPublic())[0]!;
+    const service = new CodexAccountService(repository, {
+      upstreamBaseUrl: 'https://gateway.example.test/codex',
+      fetch: async () => {
+        const error = new TypeError('fetch failed');
+        Object.assign(error, { cause: { code: 'ECONNREFUSED' } });
+        throw error;
+      }
+    });
+
+    await expect(service.discoverModels(account.id)).rejects.toMatchObject({
+      status: 502,
+      message: '无法连接模型服务（网络错误：ECONNREFUSED）'
+    });
+    expect((await repository.listPublic())[0]).toMatchObject({
+      status: 'error',
+      lastError: '无法连接模型服务（网络错误：ECONNREFUSED）'
+    });
+  });
+
+  it('preserves a safe network error code when refreshing quota cannot reach the upstream', async () => {
+    const repository = await createRepository();
+    const account = (await repository.listPublic())[0]!;
+    const service = new CodexAccountService(repository, {
+      upstreamBaseUrl: 'https://gateway.example.test/codex',
+      fetch: async () => {
+        const error = new TypeError('fetch failed');
+        Object.assign(error, { cause: { code: 'ETIMEDOUT' } });
+        throw error;
+      }
+    });
+
+    await expect(service.refreshUsage(account.id)).rejects.toMatchObject({
+      status: 502,
+      message: '无法连接额度服务（网络错误：ETIMEDOUT）'
+    });
+  });
+
   it('reads Codex quota windows from response headers, including quota-exhausted responses', async () => {
     const repository = await createRepository();
     const account = (await repository.listPublic())[0]!;

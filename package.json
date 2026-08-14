@@ -15,9 +15,11 @@
     "build:extension": "npm run build:extension -w client && node scripts/package-extension.mjs",
     "package:server": "node scripts/package-server.mjs",
     "package:server:windows": "node scripts/package-server.mjs --target windows-x64",
+    "install:native-host": "node scripts/install-native-messaging-host.mjs",
+    "uninstall:native-host": "node scripts/install-native-messaging-host.mjs --uninstall",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
     "lint": "npm run lint -w server && npm run lint -w client",
-    "test": "npm run test -w server && npm run test -w client"
+    "test": "npm run test -w server && npm run test -w client && node --test scripts/package-runtime-config.test.mjs scripts/native-messaging-host.test.mjs scripts/native-messaging-installer.test.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.18.0",

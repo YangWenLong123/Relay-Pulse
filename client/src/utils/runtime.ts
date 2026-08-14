@@ -23,6 +23,14 @@ export function isStandaloneExtensionRuntime(
   return isExtensionRuntime(buildTarget, protocol) && extensionDataMode(configuredMode) === 'standalone';
 }
 
+export function isBackendExtensionRuntime(
+  buildTarget: string | undefined,
+  protocol: string,
+  configuredMode?: string
+): boolean {
+  return isExtensionRuntime(buildTarget, protocol) && extensionDataMode(configuredMode) === 'backend';
+}
+
 export function resolveApiBaseUrl(
   configuredUrl: string | undefined,
   protocol: string,

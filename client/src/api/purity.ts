@@ -7,7 +7,7 @@ import type {
   PurityTestResult
 } from '../types';
 import { isStandaloneExtensionRuntime } from '../utils/runtime';
-import { http } from './http';
+import { backendRequestHeaders, http } from './http';
 
 const MAX_STREAM_LINE_LENGTH = 1_048_576;
 
@@ -141,10 +141,10 @@ async function consumePurityTestStream(
 ): Promise<PurityTestResult> {
   const response = await globalThis.fetch(url, {
     method: 'POST',
-    headers: {
+    headers: backendRequestHeaders({
       Accept: 'application/x-ndjson',
       'Content-Type': 'application/json'
-    },
+    }),
     body: JSON.stringify(value),
     signal
   });

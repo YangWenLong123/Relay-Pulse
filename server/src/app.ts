@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { config } from './config.js';
 import { HttpError } from './lib/http-error.js';
 import { createCodexUpstreamFetch } from './lib/codex-upstream-fetch.js';
+import { allowsExtensionRequest, extensionAccessTokenHeader } from './lib/extension-access.js';
 import { isAllowedClientOrigin } from './lib/origin-policy.js';
 import { normalizeBaseUrl, publicRelay } from './lib/relay-utils.js';
 import { HistoryRepository } from './repositories/history-repository.js';
@@ -170,6 +171,8 @@ export interface AppDependencies {
   codexAccountService?: CodexAccountService;
   codexProxy?: CodexProxyService;
   startBalanceScheduler?: boolean;
+  /** Override the packaged extension token in integration tests or embedders. */
+  extensionAccessToken?: string;
 }
 
 export async function createApp(dependencies: AppDependencies = {}): Promise<express.Express> {
@@ -203,6 +206,9 @@ export async function createApp(dependencies: AppDependencies = {}): Promise<exp
     upstreamBaseUrl: config.codexUpstreamBaseUrl,
     fetch: codexUpstreamFetch
   });
+  const extensionAccessToken = dependencies.extensionAccessToken === undefined
+    ? config.extensionAccessToken
+    : dependencies.extensionAccessToken;
   const purityControllers = new Map<string, Set<AbortController>>();
   const registerPurityController = (relayId: string, controller: AbortController): void => {
     const controllers = purityControllers.get(relayId) ?? new Set<AbortController>();
@@ -233,6 +239,7 @@ export async function createApp(dependencies: AppDependencies = {}): Promise<exp
   app.disable('x-powered-by');
   app.use(
     cors({
+      allowedHeaders: ['Content-Type', extensionAccessTokenHeader],
       origin(origin, callback) {
         if (isAllowedClientOrigin(origin, config.clientOrigins, config.allowExtensionOrigins)) {
           callback(null, true);
@@ -242,6 +249,15 @@ export async function createApp(dependencies: AppDependencies = {}): Promise<exp
       }
     })
   );
+  app.use((req, _res, next) => {
+    // Browsers cannot include the custom token on the preflight itself. CORS
+    // handles the preflight response before this middleware in normal mode.
+    if (req.method === 'OPTIONS' || allowsExtensionRequest(req.get('origin'), req.get(extensionAccessTokenHeader), extensionAccessToken)) {
+      next();
+      return;
+    }
+    next(new HttpError(401, '扩展本机访问令牌无效'));
+  });
 
   app.post(
     '/api/images/generate',
@@ -328,7 +344,7 @@ export async function createApp(dependencies: AppDependencies = {}): Promise<exp
 
   app.use(express.json({ limit: '64kb' }));
 
-  app.get('/api/health', (_req, res) => send(res, { status: 'ok' }));
+  app.get('/api/health', (_req, res) => send(res, { status: 'ok', service: 'relay-pulse' }));
 
   app.get(
     '/api/codex-accounts',

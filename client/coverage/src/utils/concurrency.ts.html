@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>22/22</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>0/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>22/22</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -85,50 +85,50 @@
 <a name='L20'></a><a href='#L20'>20</a>
 <a name='L21'></a><a href='#L21'>21</a>
 <a name='L22'></a><a href='#L22'>22</a>
-<a name='L23'></a><a href='#L23'>23</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export async function runConcurrent&lt;T&gt;(
-  values: T[],
-  concurrency: number,
-  worker: (value: T, index: number) =&gt; Promise&lt;void&gt;,
-  shouldStop: () =&gt; boolean = () =&gt; false
-): Promise&lt;PromiseSettledResult&lt;void&gt;[]&gt; {
-  let cursor = 0;
-  const results = new Array&lt;PromiseSettledResult&lt;void&gt; | undefined&gt;(values.length);
-  async function consume(): Promise&lt;void&gt; {
-    while (cursor &lt; values.length &amp;&amp; !shouldStop()) {
-      const index = cursor++;
-      try {
-        await worker(values[index]!, index);
-        results[index] = { status: 'fulfilled', value: undefined };
-      } catch (reason) {
-        results[index] = { status: 'rejected', reason };
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), values.length) }, consume));
-  return results.filter((result): result is PromiseSettledResult&lt;void&gt; =&gt; result !== undefined);
-}
+<a name='L23'></a><a href='#L23'>23</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >export async function runConcurrent&lt;T&gt;(<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cstat-no" title="statement not covered" >  values: T[],</span>
+<span class="cstat-no" title="statement not covered" >  concurrency: number,</span>
+<span class="cstat-no" title="statement not covered" >  worker: (value: T, index: number) =&gt; Promise&lt;void&gt;,</span>
+<span class="cstat-no" title="statement not covered" >  shouldStop: () =&gt; boolean = () =&gt; false</span>
+<span class="cstat-no" title="statement not covered" >): Promise&lt;PromiseSettledResult&lt;void&gt;[]&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  let cursor = 0;</span>
+<span class="cstat-no" title="statement not covered" >  const results = new Array&lt;PromiseSettledResult&lt;void&gt; | undefined&gt;(values.length);</span>
+<span class="cstat-no" title="statement not covered" >  async function consume(): Promise&lt;void&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    while (cursor &lt; values.length &amp;&amp; !shouldStop()) {</span>
+<span class="cstat-no" title="statement not covered" >      const index = cursor++;</span>
+<span class="cstat-no" title="statement not covered" >      try {</span>
+<span class="cstat-no" title="statement not covered" >        await worker(values[index]!, index);</span>
+<span class="cstat-no" title="statement not covered" >        results[index] = { status: 'fulfilled', value: undefined };</span>
+<span class="cstat-no" title="statement not covered" >      } catch (reason) {</span>
+<span class="cstat-no" title="statement not covered" >        results[index] = { status: 'rejected', reason };</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), values.length) }, consume));</span>
+<span class="cstat-no" title="statement not covered" >  return results.filter((result): result is PromiseSettledResult&lt;void&gt; =&gt; result !== undefined);</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -136,7 +136,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-10T04:07:19.840Z
+                at 2026-08-13T07:04:22.207Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

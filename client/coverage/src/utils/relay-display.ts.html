@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>12/12</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/6</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>12/12</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -84,36 +84,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Formats a relay URL for user-facing website display without changing the
  * endpoint stored or used for requests.
  */
-export function displayRelayUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) <span class="branch-0 cbranch-no" title="branch not covered" >return trimmed;</span>
+<span class="cstat-no" title="statement not covered" >export function displayRelayUrl(value: string): string {</span>
+<span class="cstat-no" title="statement not covered" >  const trimmed = value.trim();</span>
+<span class="cstat-no" title="statement not covered" >  if (!trimmed) return trimmed;</span>
 &nbsp;
-  try {
-    const url = new URL(trimmed);
-    const pathname = url.pathname.replace(/\/+$|\s+$/g, '');
-    const websitePath = pathname.replace(/\/v1$/i, '') || '/';
-    return `${url.origin}${websitePath === '/' ? '' : websitePath}${url.search}${url.hash}`;
-  } catch {
-    return trimmed.replace(/\/v1\/?$/i, '');
-  }
-}
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    const url = new URL(trimmed);</span>
+<span class="cstat-no" title="statement not covered" >    const pathname = url.pathname.replace(/\/+$|\s+$/g, '');</span>
+<span class="cstat-no" title="statement not covered" >    const websitePath = pathname.replace(/\/v1$/i, '') || '/';</span>
+<span class="cstat-no" title="statement not covered" >    return `${url.origin}${websitePath === '/' ? '' : websitePath}${url.search}${url.hash}`;</span>
+<span class="cstat-no" title="statement not covered" >  } catch {</span>
+<span class="cstat-no" title="statement not covered" >    return trimmed.replace(/\/v1\/?$/i, '');</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -121,7 +121,7 @@ export function displayRelayUrl(value: string): string {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-10T04:07:19.840Z
+                at 2026-08-13T07:04:22.207Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { streamPlaygroundReply } from '../src/api/playground';
-import { http } from '../src/api/http';
+import { extensionAccessTokenHeader, http, setHttpApiBaseUrl } from '../src/api/http';
 import type { PlaygroundCompletion, PlaygroundInput } from '../src/types';
 
 const originalBaseUrl = http.defaults.baseURL;
+const originalExtensionToken = http.defaults.headers.common[extensionAccessTokenHeader];
 const encoder = new TextEncoder();
 const input: PlaygroundInput = {
   model: 'gpt-test',
@@ -36,11 +37,14 @@ function streamResponse(chunks: Uint8Array[]): Response {
 afterEach(() => {
   vi.unstubAllGlobals();
   http.defaults.baseURL = originalBaseUrl;
+  if (originalExtensionToken === undefined) delete http.defaults.headers.common[extensionAccessTokenHeader];
+  else http.defaults.headers.common[extensionAccessTokenHeader] = originalExtensionToken;
 });
 
 describe('streamPlaygroundReply', () => {
   it('delivers deltas before resolving the completion metadata', async () => {
-    http.defaults.baseURL = 'http://127.0.0.1:3100/api/';
+    const extensionToken = 'a'.repeat(43);
+    setHttpApiBaseUrl('http://127.0.0.1:3100/api/', extensionToken);
     let streamController!: ReadableStreamDefaultController<Uint8Array>;
     const fetchMock = vi.fn().mockResolvedValue(new Response(new ReadableStream<Uint8Array>({
       start(controller) {
@@ -64,7 +68,11 @@ describe('streamPlaygroundReply', () => {
     await expect(pending).resolves.toEqual(completion);
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3100/api/relays/relay%2F1/playground/stream', {
       method: 'POST',
-      headers: { Accept: 'application/x-ndjson', 'Content-Type': 'application/json' },
+      headers: {
+        Accept: 'application/x-ndjson',
+        'Content-Type': 'application/json',
+        [extensionAccessTokenHeader]: extensionToken
+      },
       body: JSON.stringify(input),
       signal: undefined
     });

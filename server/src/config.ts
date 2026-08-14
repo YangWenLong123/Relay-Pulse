@@ -57,6 +57,7 @@ export const config = {
   host: process.env.SERVER_HOST ?? '127.0.0.1',
   clientOrigins: commaSeparated(process.env.CLIENT_ORIGIN, 'http://localhost:5173,http://127.0.0.1:5173'),
   allowExtensionOrigins: booleanFlag(process.env.ALLOW_EXTENSION_ORIGINS, true),
+  extensionAccessToken: process.env.EXTENSION_ACCESS_TOKEN?.trim() || undefined,
   dataDir: process.env.DATA_DIR
     ? path.resolve(projectRoot, process.env.DATA_DIR)
     : isPackagedExecutable ? packagedDataDir() : path.join(projectRoot, 'data'),

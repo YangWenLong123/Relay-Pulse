@@ -1,6 +1,6 @@
 import type { PlaygroundCompletion, PlaygroundInput, PlaygroundStreamEvent } from '../types';
 import { isStandaloneExtensionRuntime } from '../utils/runtime';
-import { http } from './http';
+import { backendRequestHeaders, http } from './http';
 
 const MAX_STREAM_LINE_LENGTH = 2 * 1024 * 1024;
 
@@ -76,10 +76,10 @@ export async function streamPlaygroundReply(
   throwIfAborted(signal);
   const response = await globalThis.fetch(`${apiBaseUrl()}/relays/${encodeURIComponent(relayId)}/playground/stream`, {
     method: 'POST',
-    headers: {
+    headers: backendRequestHeaders({
       Accept: 'application/x-ndjson',
       'Content-Type': 'application/json'
-    },
+    }),
     body: JSON.stringify(input),
     signal
   });

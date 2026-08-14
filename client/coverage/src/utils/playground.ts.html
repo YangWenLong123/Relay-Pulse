@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>0/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.3% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/13</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>0/14</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -84,42 +84,42 @@
 <a name='L19'></a><a href='#L19'>19</a>
 <a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { Relay } from '../types';
 &nbsp;
-export const DEFAULT_PLAYGROUND_MODEL = 'gpt-5.6-sol';
+<span class="cstat-no" title="statement not covered" >export const DEFAULT_PLAYGROUND_MODEL = 'gpt-5.6-sol';</span>
 &nbsp;
-const preferredModels = [DEFAULT_PLAYGROUND_MODEL, 'gpt-5.6-luna'];
+<span class="cstat-no" title="statement not covered" >const preferredModels = [DEFAULT_PLAYGROUND_MODEL, 'gpt-5.6-luna'];</span>
 &nbsp;
-export function isPlaygroundRelayAvailable(
-  relay: Pick&lt;Relay, 'enabled'&gt; &amp; { balance?: Pick&lt;NonNullable&lt;Relay['balance']&gt;, 'remaining'&gt; }
-): boolean {
-  return relay.enabled &amp;&amp; (relay.balance?.remaining === undefined || relay.balance.remaining === null || relay.balance.remaining &gt;= 0);
-}
+<span class="cstat-no" title="statement not covered" >export function isPlaygroundRelayAvailable(</span>
+<span class="cstat-no" title="statement not covered" >  relay: Pick&lt;Relay, 'enabled'&gt; &amp; { balance?: Pick&lt;NonNullable&lt;Relay['balance']&gt;, 'remaining'&gt; }</span>
+<span class="cstat-no" title="statement not covered" >): boolean {</span>
+<span class="cstat-no" title="statement not covered" >  return relay.enabled &amp;&amp; (relay.balance?.remaining === undefined || relay.balance.remaining === null || relay.balance.remaining &gt;= 0);</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
-export function preferredDetectedModel(values: string[], fallback: string): string {
-  for (const preferred of preferredModels) {
-    const match = values.find((value) =&gt; value.toLowerCase() === preferred);
-    if (match) return match;
-  }
-  return values.find((value) =&gt; value.toLowerCase() === fallback.toLowerCase()) ?? values[0<span class="branch-0 cbranch-no" title="branch not covered" >] ?? fallback;</span>
-}
+<span class="cstat-no" title="statement not covered" >export function preferredDetectedModel(values: string[], fallback: string): string {</span>
+<span class="cstat-no" title="statement not covered" >  for (const preferred of preferredModels) {</span>
+<span class="cstat-no" title="statement not covered" >    const match = values.find((value) =&gt; value.toLowerCase() === preferred);</span>
+<span class="cstat-no" title="statement not covered" >    if (match) return match;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  return values.find((value) =&gt; value.toLowerCase() === fallback.toLowerCase()) ?? values[0] ?? fallback;</span>
+<span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -127,7 +127,7 @@ export function preferredDetectedModel(values: string[], fallback: string): stri
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-10T04:07:19.840Z
+                at 2026-08-13T07:04:22.207Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
