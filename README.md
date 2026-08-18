@@ -23,13 +23,29 @@ Relay Pulse 是一个本地运行的 AI 中转站连接测试工具。它管理 
 
 ## 界面预览
 
-### 批量测试
+### 中转站测试
 
-![批量测试预览](image-1.png)
+![alt text](image-2.png)
 
-### 单个测试
+### 我的号池
 
-![单个测试预览](image.png)
+![alt text](image-3.png)
+
+### GPT账号
+
+![alt text](image-4.png)
+
+### 游乐场
+
+![alt text](image-5.png)
+
+### 中转站掺水检测
+
+![alt text](image-6.png)
+
+### 绘图
+
+![alt text](image-7.png)
 
 ## 环境要求
 
@@ -143,25 +159,25 @@ Firefox 稳定版不允许永久安装未签名 XPI；本地产物可临时加�
 
 根目录 `.env` 支持：
 
-| 变量                        | 默认值                  | 说明                                          |
-| --------------------------- | ----------------------- | --------------------------------------------- |
-| `SERVER_PORT`               | `3100`                  | API 端口                                      |
-| `SERVER_HOST`               | `127.0.0.1`             | API 监听地址；默认仅允许本机访问              |
-| `CLIENT_ORIGIN`             | `http://localhost:5173` | 允许的网页前端来源，多个值使用英文逗号分隔    |
-| `ALLOW_EXTENSION_ORIGINS`   | `true`                  | 是否允许格式合法的浏览器扩展来源访问本机 API  |
-| `EXTENSION_ACCESS_TOKEN`    | 自动生成                | Native Messaging 自动启动时生成的本机扩展访问令牌；不要共享 |
-| `DATA_DIR`                  | `./data`                | JSON 数据目录                                 |
-| `HISTORY_LIMIT`             | `1000`                  | 历史记录上限                                  |
-| `POOL_USAGE_LIMIT`          | `10000`                 | 本机号池使用记录保留上限，最高 100000 条       |
-| `CODEX_USAGE_LIMIT`         | `10000`                 | GPT 账号调用明细保留上限，最高 100000 条       |
-| `BATCH_CONCURRENCY`         | `4`                     | 服务端批测并发数，最高 10                     |
-| `API_KEY_ENCRYPTION_SECRET` | 空                      | 可选；使用 AES-256-GCM 加密本地中转 API Key；也作为未单独配置 session 密钥时的后备密钥 |
-| `ACCOUNT_SESSION_ENCRYPTION_SECRET` | 空              | 可选；使用 AES-256-GCM 加密本地 GPT/Codex session；优先于 `API_KEY_ENCRYPTION_SECRET` |
-| `CODEX_UPSTREAM_BASE_URL`   | `https://chatgpt.com/backend-api/codex` | GPT/Codex session 的上游基础地址；服务会追加 `/responses` 或 `/models` |
-| `CODEX_UPSTREAM_PROXY_URL`  | 空                      | 可选；GPT/Codex 上游专用 HTTP(S) 代理，例如 `http://127.0.0.1:7890`；同步模型和本机代理请求都会走该代理 |
-| `CODEX_CLIENT_VERSION`      | `0.145.0`               | 模型同步请求发送的 Codex 客户端版本；上游升级后可按本机 Codex CLI 版本覆盖 |
-| `CC_SWITCH_DB_PATH`         | `~/.cc-switch/cc-switch.db` | CC Switch SQLite 数据库路径               |
-| `VITE_API_BASE_URL`         | `/api`                  | 前端 API 地址，配置在 `client/.env*` 中       |
+| 变量                                | 默认值                                  | 说明                                                                                                    |
+| ----------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `SERVER_PORT`                       | `3100`                                  | API 端口                                                                                                |
+| `SERVER_HOST`                       | `127.0.0.1`                             | API 监听地址；默认仅允许本机访问                                                                        |
+| `CLIENT_ORIGIN`                     | `http://localhost:5173`                 | 允许的网页前端来源，多个值使用英文逗号分隔                                                              |
+| `ALLOW_EXTENSION_ORIGINS`           | `true`                                  | 是否允许格式合法的浏览器扩展来源访问本机 API                                                            |
+| `EXTENSION_ACCESS_TOKEN`            | 自动生成                                | Native Messaging 自动启动时生成的本机扩展访问令牌；不要共享                                             |
+| `DATA_DIR`                          | `./data`                                | JSON 数据目录                                                                                           |
+| `HISTORY_LIMIT`                     | `1000`                                  | 历史记录上限                                                                                            |
+| `POOL_USAGE_LIMIT`                  | `10000`                                 | 本机号池使用记录保留上限，最高 100000 条                                                                |
+| `CODEX_USAGE_LIMIT`                 | `10000`                                 | GPT 账号调用明细保留上限，最高 100000 条                                                                |
+| `BATCH_CONCURRENCY`                 | `4`                                     | 服务端批测并发数，最高 10                                                                               |
+| `API_KEY_ENCRYPTION_SECRET`         | 空                                      | 可选；使用 AES-256-GCM 加密本地中转 API Key；也作为未单独配置 session 密钥时的后备密钥                  |
+| `ACCOUNT_SESSION_ENCRYPTION_SECRET` | 空                                      | 可选；使用 AES-256-GCM 加密本地 GPT/Codex session；优先于 `API_KEY_ENCRYPTION_SECRET`                   |
+| `CODEX_UPSTREAM_BASE_URL`           | `https://chatgpt.com/backend-api/codex` | GPT/Codex session 的上游基础地址；服务会追加 `/responses` 或 `/models`                                  |
+| `CODEX_UPSTREAM_PROXY_URL`          | 空                                      | 可选；GPT/Codex 上游专用 HTTP(S) 代理，例如 `http://127.0.0.1:7890`；同步模型和本机代理请求都会走该代理 |
+| `CODEX_CLIENT_VERSION`              | `0.145.0`                               | 模型同步请求发送的 Codex 客户端版本；上游升级后可按本机 Codex CLI 版本覆盖                              |
+| `CC_SWITCH_DB_PATH`                 | `~/.cc-switch/cc-switch.db`             | CC Switch SQLite 数据库路径                                                                             |
+| `VITE_API_BASE_URL`                 | `/api`                                  | 前端 API 地址，配置在 `client/.env*` 中                                                                 |
 
 Vite 的环境变量需要放在 `client/.env` 中。开发环境默认通过 Vite 代理访问本地 API，因此通常不需要额外配置。扩展模式使用 `client/.env.extension`，默认连接 `http://127.0.0.1:3100/api`；如需纯扩展本地存储，可将 `VITE_EXTENSION_DATA_MODE` 设为 `standalone`。
 
@@ -215,11 +231,11 @@ curl http://127.0.0.1:58000/v1/chat/completions \
 
 本机代理仅支持 OpenAI Responses 协议，支持普通响应和 SSE 流式响应：
 
-| 方法 | 路径 | 用途 |
-| ---- | ---- | ---- |
-| `POST` | `/v1/responses` | 转发 Responses 请求至选中的 GPT/Codex 账号 |
-| `GET` | `/v1/models` | 返回已同步模型的 OpenAI 兼容列表 |
-| `GET` | `/v1/usage` | 返回当前可用账号数，供 CC Switch 用量脚本展示 |
+| 方法   | 路径            | 用途                                          |
+| ------ | --------------- | --------------------------------------------- |
+| `POST` | `/v1/responses` | 转发 Responses 请求至选中的 GPT/Codex 账号    |
+| `GET`  | `/v1/models`    | 返回已同步模型的 OpenAI 兼容列表              |
+| `GET`  | `/v1/usage`     | 返回当前可用账号数，供 CC Switch 用量脚本展示 |
 
 为便于本机客户端接入，`/responses`、`/models` 和 `/usage` 也可省略 `/v1` 前缀。请求可使用 `Authorization: Bearer <临时 Key>` 或 `X-API-Key: <临时 Key>` 鉴权；不支持 `/v1/chat/completions`。代理会在启用且未过期的已选账号之间按顺序轮询或随机路由。连接错误、上游鉴权失败、限流和 5xx 错误会尝试下一个兼容账号；请求的模型已同步时，只会选择声明支持该模型的账号。
 
